@@ -103,6 +103,8 @@ function extractValue(prop: any): any {
       return prop.people?.map((p: any) => ({ id: p.id, name: p.name })) ?? [];
     case 'files':
       return prop.files?.map((f: any) => f.external?.url ?? f.file?.url) ?? [];
+    case 'location':
+      return prop.location ?? null;
     default:
       return prop[prop.type];
   }

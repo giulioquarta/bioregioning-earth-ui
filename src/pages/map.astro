@@ -11,22 +11,44 @@ if (orgsSection && orgsSection.database_id) {
   records = await fetchDatabaseRecords(orgsSection.database_id);
 }
 
+// Helper: extract lat/lng from a record, supporting both Notion location properties and raw Lat/Lng numbers
+function getCoords(r: any): { lat: number; lng: number; address?: string } | null {
+  const props = r.properties ?? {};
+
+  // 1. Try Notion "location" type property (e.g. "Place", "Location")
+  for (const key of Object.keys(props)) {
+    const val = props[key];
+    if (val && typeof val === 'object' && 'latitude' in val && 'longitude' in val) {
+      const lat = Number(val.latitude);
+      const lng = Number(val.longitude);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return { lat, lng, address: val.address };
+      }
+    }
+  }
+
+  // 2. Fall back to raw Lat/Lng number properties
+  const lat = Number(props['Lat'] ?? props['lat'] ?? props['Latitude'] ?? props['latitude']);
+  const lng = Number(props['Lng'] ?? props['lng'] ?? props['Longitude'] ?? props['longitude']);
+  if (!isNaN(lat) && !isNaN(lng)) {
+    return { lat, lng };
+  }
+
+  return null;
+}
+
 const markers = records
-  .filter((r) => {
-    const lat = Number(r.properties['Lat'] ?? r.properties['lat'] ?? r.properties['Latitude']);
-    const lng = Number(r.properties['Lng'] ?? r.properties['lng'] ?? r.properties['Longitude']);
-    return !isNaN(lat) && !isNaN(lng);
-  })
   .map((r) => {
-    const lat = Number(r.properties['Lat'] ?? r.properties['lat'] ?? r.properties['Latitude']);
-    const lng = Number(r.properties['Lng'] ?? r.properties['lng'] ?? r.properties['Longitude']);
+    const coords = getCoords(r);
+    if (!coords) return null;
     const name = String(r.properties['Name'] ?? r.properties['Title'] ?? 'Untitled');
     const slug = r.id.replace(/-/g, '');
     const href = `${base}/organizations/${slug}`;
     const type = String(r.properties['Type'] ?? r.properties['type'] ?? r.properties['Tags'] ?? r.properties['tags'] ?? '');
-    const scope = String(r.properties['Scope'] ?? r.properties['scope'] ?? r.properties['Comarca'] ?? r.properties['comarca'] ?? '');
-    return { id: r.id, lat, lng, name, href, type, scope };
-  });
+    const scope = String(r.properties['Scope'] ?? r.properties['scope'] ?? r.properties['Comarca'] ?? r.properties['comarca'] ?? coords.address ?? '');
+    return { id: r.id, lat: coords.lat, lng: coords.lng, name, href, type, scope };
+  })
+  .filter(Boolean) as Array<{ id: string; lat: number; lng: number; name: string; href: string; type: string; scope: string }>;
 
 const hasMapData = markers.length > 0;
 ---
@@ -39,18 +61,18 @@ const hasMapData = markers.length > 0;
         <div id="map-fullscreen" style="position:absolute;inset:0;" data-markers={JSON.stringify(markers)}></div>
 
         <!-- Floating sidebar -->
-        <aside style="position:absolute;top:1rem;left:1rem;width:320px;max-height:calc(100% - 2rem);overflow-y:auto;background:rgba(10,15,13,0.92);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;z-index:10;">
+        <aside style="position:absolute;top:1rem;left:1rem;width:300px;max-height:calc(100% - 2rem);overflow-y:auto;background:rgba(10,15,13,0.92);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;z-index:10;">
           <h2 style="margin:0 0 0.75rem 0;font-size:1.1rem;font-weight:600;color:var(--fg);">🌍 Organizations ({markers.length})</h2>
-          <div style="display:flex;flex-direction:column;gap:0.6rem;">
+          <div style="display:flex;flex-direction:column;gap:0.5rem;">
             {markers.map((m) => (
               <a
                 href={m.href}
-                style="display:block;padding:0.6rem 0.75rem;border-radius:8px;background:var(--surface);border:1px solid var(--border);text-decoration:none;transition:background 0.12s;"
+                style="display:block;padding:0.55rem 0.7rem;border-radius:8px;background:var(--surface);border:1px solid var(--border);text-decoration:none;transition:background 0.12s;"
                 onmouseenter="this.style.background='var(--card)';"
                 onmouseleave="this.style.background='var(--surface)';"
               >
-                <div style="font-size:0.9rem;font-weight:500;color:var(--fg);margin-bottom:0.2rem;">{m.name}</div>
-                <div style="font-size:0.75rem;color:var(--muted);display:flex;gap:0.5rem;flex-wrap:wrap;">
+                <div style="font-size:0.88rem;font-weight:500;color:var(--fg);margin-bottom:0.15rem;">{m.name}</div>
+                <div style="font-size:0.72rem;color:var(--muted);display:flex;gap:0.4rem;flex-wrap:wrap;">
                   {m.type && <span>{m.type}</span>}
                   {m.scope && <span>· {m.scope}</span>}
                 </div>
@@ -60,8 +82,12 @@ const hasMapData = markers.length > 0;
         </aside>
       </>
     ) : (
-      <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);">
-        No geolocated organizations found. Check that your Notion database has Lat/Lng number properties.
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);padding:2rem;text-align:center;">
+        <div>
+          <div style="font-size:1.5rem;margin-bottom:0.75rem;">🗺️</div>
+          <p style="margin:0 0 0.5rem 0;">No geolocated organizations found.</p>
+          <p style="margin:0;font-size:0.9rem;opacity:0.7;">Check that your Notion database has a <strong>Place</strong> (location) property or <strong>Lat/Lng</strong> number properties.</p>
+        </div>
       </div>
     )}
   </main>
@@ -120,15 +146,15 @@ const hasMapData = markers.length > 0;
 
         const popup = new maplibregl.Popup({ offset: 14, closeButton: false }).setHTML(popupHtml);
 
-        const marker = new maplibregl.Marker({ element: el })
+        new maplibregl.Marker({ element: el })
           .setLngLat([m.lng, m.lat])
           .setPopup(popup)
           .addTo(map);
 
         bounds.extend([m.lng, m.lat]);
 
-        // Click marker to navigate
-        el.addEventListener('click', (e) => {
+        // Click marker to navigate to detail page
+        el.addEventListener('click', () => {
           window.location.href = m.href;
         });
       }

@@ -21,11 +21,21 @@ const mapMarkers = sectionsWithData.flatMap(({ section, records }) =>
   records.map(r => ({ ...r, sectionRoute: section.route }))
 );
 
-const hasMapData = mapMarkers.some((r) => {
-  const lat = Number(r.properties['Lat'] ?? r.properties['lat'] ?? r.properties['Latitude']);
-  const lng = Number(r.properties['Lng'] ?? r.properties['lng'] ?? r.properties['Longitude']);
+function hasCoords(props: Record<string, any>): boolean {
+  for (const key of Object.keys(props)) {
+    const val = props[key];
+    if (val && typeof val === 'object' && 'latitude' in val && 'longitude' in val) {
+      const lat = Number(val.latitude);
+      const lng = Number(val.longitude);
+      if (!isNaN(lat) && !isNaN(lng)) return true;
+    }
+  }
+  const lat = Number(props['Lat'] ?? props['lat'] ?? props['Latitude'] ?? props['latitude']);
+  const lng = Number(props['Lng'] ?? props['lng'] ?? props['Longitude'] ?? props['longitude']);
   return !isNaN(lat) && !isNaN(lng);
-});
+}
+
+const hasMapData = mapMarkers.some((r) => hasCoords(r.properties));
 ---
 
 <Layout title="Dashboard" description="Explore bioregional actors, projects, and opportunities">
