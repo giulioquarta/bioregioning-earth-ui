@@ -1,0 +1,147 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { loadSectionConfig, fetchDatabaseRecords } from '../lib/notion';
+
+const base = import.meta.env.BASE_URL;
+const sections = loadSectionConfig();
+const orgsSection = sections.find((s) => s.id === 'bioregional-organizations');
+
+let records: any[] = [];
+if (orgsSection && orgsSection.database_id) {
+  records = await fetchDatabaseRecords(orgsSection.database_id);
+}
+
+const markers = records
+  .filter((r) => {
+    const lat = Number(r.properties['Lat'] ?? r.properties['lat'] ?? r.properties['Latitude']);
+    const lng = Number(r.properties['Lng'] ?? r.properties['lng'] ?? r.properties['Longitude']);
+    return !isNaN(lat) && !isNaN(lng);
+  })
+  .map((r) => {
+    const lat = Number(r.properties['Lat'] ?? r.properties['lat'] ?? r.properties['Latitude']);
+    const lng = Number(r.properties['Lng'] ?? r.properties['lng'] ?? r.properties['Longitude']);
+    const name = String(r.properties['Name'] ?? r.properties['Title'] ?? 'Untitled');
+    const slug = r.id.replace(/-/g, '');
+    const href = `${base}/organizations/${slug}`;
+    const type = String(r.properties['Type'] ?? r.properties['type'] ?? r.properties['Tags'] ?? r.properties['tags'] ?? '');
+    const scope = String(r.properties['Scope'] ?? r.properties['scope'] ?? r.properties['Comarca'] ?? r.properties['comarca'] ?? '');
+    return { id: r.id, lat, lng, name, href, type, scope };
+  });
+
+const hasMapData = markers.length > 0;
+---
+
+<Layout title="Map" description="Interactive map of bioregional organizations">
+  <main style="position:relative;height:calc(100vh - 56px);overflow:hidden;">
+    {hasMapData ? (
+      <>
+        <!-- Full-screen map -->
+        <div id="map-fullscreen" style="position:absolute;inset:0;" data-markers={JSON.stringify(markers)}></div>
+
+        <!-- Floating sidebar -->
+        <aside style="position:absolute;top:1rem;left:1rem;width:320px;max-height:calc(100% - 2rem);overflow-y:auto;background:rgba(10,15,13,0.92);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;z-index:10;">
+          <h2 style="margin:0 0 0.75rem 0;font-size:1.1rem;font-weight:600;color:var(--fg);">🌍 Organizations ({markers.length})</h2>
+          <div style="display:flex;flex-direction:column;gap:0.6rem;">
+            {markers.map((m) => (
+              <a
+                href={m.href}
+                style="display:block;padding:0.6rem 0.75rem;border-radius:8px;background:var(--surface);border:1px solid var(--border);text-decoration:none;transition:background 0.12s;"
+                onmouseenter="this.style.background='var(--card)';"
+                onmouseleave="this.style.background='var(--surface)';"
+              >
+                <div style="font-size:0.9rem;font-weight:500;color:var(--fg);margin-bottom:0.2rem;">{m.name}</div>
+                <div style="font-size:0.75rem;color:var(--muted);display:flex;gap:0.5rem;flex-wrap:wrap;">
+                  {m.type && <span>{m.type}</span>}
+                  {m.scope && <span>· {m.scope}</span>}
+                </div>
+              </a>
+            ))}
+          </div>
+        </aside>
+      </>
+    ) : (
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);">
+        No geolocated organizations found. Check that your Notion database has Lat/Lng number properties.
+      </div>
+    )}
+  </main>
+
+  <script>
+    import maplibregl from 'maplibre-gl';
+    import 'maplibre-gl/dist/maplibre-gl.css';
+
+    function initMap() {
+      const container = document.getElementById('map-fullscreen');
+      if (!container) return;
+
+      const markers = JSON.parse(container.dataset.markers || '[]');
+      if (markers.length === 0) return;
+
+      const avgLat = markers.reduce((s, m) => s + m.lat, 0) / markers.length;
+      const avgLng = markers.reduce((s, m) => s + m.lng, 0) / markers.length;
+
+      const map = new maplibregl.Map({
+        container,
+        style: {
+          version: 8,
+          sources: {
+            osm: {
+              type: 'raster',
+              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+              tileSize: 256,
+              attribution: '&copy; OpenStreetMap contributors',
+            },
+          },
+          layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+        },
+        center: [avgLng || 0, avgLat || 20],
+        zoom: markers.length === 1 ? 5 : 2,
+      });
+
+      map.addControl(new maplibregl.NavigationControl(), 'top-right');
+      map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+      map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
+
+      const bounds = new maplibregl.LngLatBounds();
+
+      for (const m of markers) {
+        const el = document.createElement('div');
+        el.style.cssText = 'width:18px;height:18px;border-radius:50%;background:var(--accent);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:pointer;transition:transform 0.12s;';
+        el.onmouseenter = () => { el.style.transform = 'scale(1.4)'; };
+        el.onmouseleave = () => { el.style.transform = ''; };
+
+        const popupHtml = `
+          <div style="font-family:system-ui,sans-serif;min-width:180px;">
+            <a href="${m.href}" style="font-weight:700;font-size:0.95rem;color:var(--accent);text-decoration:none;display:block;margin-bottom:0.3rem;">${m.name}</a>
+            ${m.type ? `<div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.2rem;">${m.type}</div>` : ''}
+            ${m.scope ? `<div style="font-size:0.75rem;color:var(--muted);">${m.scope}</div>` : ''}
+          </div>
+        `;
+
+        const popup = new maplibregl.Popup({ offset: 14, closeButton: false }).setHTML(popupHtml);
+
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([m.lng, m.lat])
+          .setPopup(popup)
+          .addTo(map);
+
+        bounds.extend([m.lng, m.lat]);
+
+        // Click marker to navigate
+        el.addEventListener('click', (e) => {
+          window.location.href = m.href;
+        });
+      }
+
+      if (markers.length > 1) {
+        map.fitBounds(bounds, { padding: 80, maxZoom: 10 });
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initMap);
+    } else {
+      initMap();
+    }
+  </script>
+</Layout>
