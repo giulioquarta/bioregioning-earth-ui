@@ -1,0 +1,30 @@
+---
+export interface Props {
+  id: string;
+  title: string;
+  subtitle?: string;
+  tags?: string[];
+  url?: string | null;
+  basePath?: string;
+}
+const { id, title, subtitle, tags = [], url, basePath = '/' } = Astro.props;
+const slug = id.replace(/-/g, '');
+---
+
+<a
+  href={`${basePath}${slug}`}
+  class="block rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 hover:border-[var(--accent)] transition-colors"
+>
+  <h3 class="text-lg font-semibold text-[var(--fg)] mb-1">{title}</h3>
+  {subtitle && <p class="text-sm text-[var(--muted)] mb-2">{subtitle}</p>}
+  <div class="flex flex-wrap gap-2">
+    {tags.map((t) => (
+      <span class="text-xs px-2 py-1 rounded-full bg-[var(--bg)] text-[var(--muted)] border border-[var(--border)]">
+        {t}
+      </span>
+    ))}
+  </div>
+  {url && (
+    <p class="mt-2 text-xs text-[var(--accent)] truncate">{url}</p>
+  )}
+</a>

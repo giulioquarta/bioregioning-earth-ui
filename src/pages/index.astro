@@ -1,0 +1,53 @@
+---
+import Layout from '../layouts/Layout.astro';
+import EarthMap from '../components/EarthMap.astro';
+import NetworkSection from '../components/NetworkSection.astro';
+import { loadSectionConfig, fetchSectionRecords } from '../lib/notion';
+
+const sections = loadSectionConfig();
+
+const sectionsWithData = await Promise.all(
+  sections.map(async (s) => {
+    const records = await fetchSectionRecords(s);
+    return { section: s, records };
+  })
+);
+
+const mapSections = sectionsWithData.filter(
+  ({ records }) => records.some((r) => {
+    const lat = Number(r.properties['Lat'] ?? r.properties['lat'] ?? r.properties['Latitude']);
+    const lng = Number(r.properties['Lng'] ?? r.properties['lng'] ?? r.properties['Longitude']);
+    return !isNaN(lat) && !isNaN(lng);
+  })
+);
+
+const allMappableRecords = mapSections.flatMap(({ records }) => records);
+---
+
+<Layout title="Dashboard" description="Explore bioregional actors, projects, and opportunities">
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold text-[var(--fg)]">Bioregioning Earth</h1>
+      <p class="text-[var(--muted)] mt-2">A living interface to the bioregional network.</p>
+    </header>
+
+    {allMappableRecords.length > 0 && (
+      <section class="mb-10">
+        <EarthMap records={allMappableRecords} />
+      </section>
+    )}
+
+    {sectionsWithData.map(({ section, records }) => (
+      <section class="py-6" id={section.id}>
+        <div class="flex items-baseline justify-between mb-4">
+          <h2 class="text-xl font-semibold text-[var(--fg)]">
+            <a href={section.route} class="hover:text-[var(--accent)]">{section.name}</a>
+          </h2>
+          <span class="text-sm text-[var(--muted)]">{records.length}</span>
+        </div>
+        <p class="text-sm text-[var(--muted)] mb-4">{section.description}</p>
+        <NetworkSection records={records} basePath={section.route} />
+      </section>
+    ))}
+  </main>
+</Layout>

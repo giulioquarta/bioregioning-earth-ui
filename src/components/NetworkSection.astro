@@ -1,0 +1,42 @@
+---
+import EntityCard from './EntityCard.astro';
+import type { NormalizedRecord } from '../lib/notion';
+
+export interface Props {
+  records: NormalizedRecord[];
+  basePath?: string;
+}
+const { records, basePath = '/' } = Astro.props;
+
+function getTitle(r: NormalizedRecord): string {
+  return String(r.properties['Name'] ?? r.properties['Title'] ?? r.properties['name'] ?? r.properties['title'] ?? 'Untitled');
+}
+
+function getSubtitle(r: NormalizedRecord): string | undefined {
+  return String(r.properties['Description'] ?? r.properties['description'] ?? r.properties['Subtitle'] ?? r.properties['subtitle'] ?? '').slice(0, 120) || undefined;
+}
+
+function getTags(r: NormalizedRecord): string[] {
+  const val = r.properties['Tags'] ?? r.properties['tags'] ?? r.properties['Type'] ?? r.properties['type'] ?? r.properties['Cluster'] ?? r.properties['cluster'] ?? [];
+  return Array.isArray(val) ? val : val ? [String(val)] : [];
+}
+
+function getUrl(r: NormalizedRecord): string | null {
+  return r.properties['URL'] ?? r.properties['Url'] ?? r.properties['url'] ?? r.properties['Website'] ?? r.properties['website'] ?? null;
+}
+---
+
+<section class="py-8">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {records.map((r) => (
+      <EntityCard
+        id={r.id}
+        title={getTitle(r)}
+        subtitle={getSubtitle(r)}
+        tags={getTags(r)}
+        url={getUrl(r)}
+        basePath={basePath}
+      />
+    ))}
+  </div>
+</section>

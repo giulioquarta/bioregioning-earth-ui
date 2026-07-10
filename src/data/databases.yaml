@@ -1,0 +1,36 @@
+# Notion database mappings for each website section
+# Database IDs are not sensitive — only the NOTION_API_KEY is secret.
+# Add new sections by adding entries here.
+
+sections:
+  - id: bioregional-organizations
+    name: Bioregional Organizations
+    description: Bioregional actors and initiatives mapped across territories
+    database_id: 3331441510e18010a3b2d72945d092ea
+    route: /
+    icon: globe
+    # Properties the UI expects: Name, Lat, Lng, Type/Tags, Description, URL
+
+  - id: activities
+    name: Activities
+    description: Events, workshops, and convenings
+    database_id: 3331441510e180328c25e45f7a0c2d45
+    route: /activities
+    icon: calendar
+    # Properties: Name, Date, Status, Type, Location, Description, URL
+
+  - id: sources
+    name: Sources
+    description: Knowledge sources, references, and publications
+    database_id: 3331441510e180e5a0c0dc1b11a93043
+    route: /sources
+    icon: book-open
+    # Properties: Name, Author, Type, Tags, Description, URL
+
+  - id: ontology
+    name: Ontology
+    description: Concepts, patterns, and frameworks for bioregional practice
+    database_id: 3331441510e180d19eccdad5b09ee6de
+    route: /ontology
+    icon: network
+    # Properties: Name, Category, Definition, Related, Status, URL

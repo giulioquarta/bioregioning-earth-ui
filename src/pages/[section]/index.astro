@@ -1,0 +1,40 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import EarthMap from '../../components/EarthMap.astro';
+import NetworkSection from '../../components/NetworkSection.astro';
+import { loadSectionConfig, fetchSectionRecords } from '../../lib/notion';
+
+export async function getStaticPaths() {
+  const sections = loadSectionConfig();
+  return sections.map((s) => ({
+    params: { section: s.route.replace(/^\//, '') },
+    props: { section: s },
+  }));
+}
+
+const { section } = Astro.props;
+const records = await fetchSectionRecords(section);
+---
+
+<Layout title={section.name} description={section.description}>
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <a href="./" class="text-sm text-[var(--accent)] mb-4 inline-block">← Dashboard</a>
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold text-[var(--fg)]">{section.name}</h1>
+      <p class="text-[var(--muted)] mt-2">{section.description}</p>
+      <span class="text-sm text-[var(--muted)]">{records.length} records</span>
+    </header>
+
+    {records.some((r) => {
+      const lat = Number(r.properties['Lat'] ?? r.properties['lat'] ?? r.properties['Latitude']);
+      const lng = Number(r.properties['Lng'] ?? r.properties['lng'] ?? r.properties['Longitude']);
+      return !isNaN(lat) && !isNaN(lng);
+    }) && (
+      <section class="mb-10">
+        <EarthMap records={records} />
+      </section>
+    )}
+
+    <NetworkSection records={records} basePath={section.route} />
+  </main>
+</Layout>

@@ -1,0 +1,75 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { loadSectionConfig, fetchSectionRecords } from '../../lib/notion';
+import type { NormalizedRecord } from '../../lib/notion';
+
+export async function getStaticPaths() {
+  const sections = loadSectionConfig();
+  const allPaths: { params: { section: string; slug: string }; props: { record: NormalizedRecord; sectionRoute: string } }[] = [];
+
+  for (const section of sections) {
+    if (!section.database_id) continue;
+    const records = await fetchSectionRecords(section);
+    for (const r of records) {
+      allPaths.push({
+        params: {
+          section: section.route.replace(/^\//, ''),
+          slug: r.id.replace(/-/g, ''),
+        },
+        props: { record: r, sectionRoute: section.route },
+      });
+    }
+  }
+
+  return allPaths;
+}
+
+interface Props {
+  record: NormalizedRecord;
+  sectionRoute: string;
+}
+
+const { record, sectionRoute } = Astro.props;
+
+function getTitle(r: NormalizedRecord): string {
+  return String(r.properties['Name'] ?? r.properties['Title'] ?? r.properties['name'] ?? r.properties['title'] ?? 'Untitled');
+}
+
+function getDescription(r: NormalizedRecord): string {
+  return String(r.properties['Description'] ?? r.properties['description'] ?? r.properties['Notes'] ?? r.properties['notes'] ?? '');
+}
+
+const title = getTitle(record);
+const description = getDescription(record).slice(0, 160);
+---
+
+<Layout title={title} description={description}>
+  <main class="max-w-3xl mx-auto px-4 py-8">
+    <a href={`${sectionRoute}`} class="text-sm text-[var(--accent)] mb-4 inline-block">← Back to section</a>
+    <h1 class="text-3xl font-bold text-[var(--fg)] mb-4">{title}</h1>
+
+    <div class="rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
+      {description && <p class="text-[var(--fg)] mb-4">{description}</p>}
+
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        {Object.entries(record.properties).map(([key, value]) => {
+          if (!value || (Array.isArray(value) && value.length === 0)) return null;
+          return (
+            <div>
+              <dt class="text-[var(--muted)] uppercase tracking-wide text-xs mb-1">{key}</dt>
+              <dd class="text-[var(--fg)]">
+                {Array.isArray(value) ? value.join(', ') : String(value)}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+
+      <div class="mt-6">
+        <a href={record.url} target="_blank" rel="noopener noreferrer" class="text-[var(--accent)] underline text-sm">
+          View in Notion →
+        </a>
+      </div>
+    </div>
+  </main>
+</Layout>
