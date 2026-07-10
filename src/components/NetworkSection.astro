@@ -13,7 +13,8 @@ function getTitle(r: NormalizedRecord): string {
 }
 
 function getSubtitle(r: NormalizedRecord): string | undefined {
-  return String(r.properties['Description'] ?? r.properties['description'] ?? r.properties['Subtitle'] ?? r.properties['subtitle'] ?? '').slice(0, 120) || undefined;
+  const desc = String(r.properties['Description'] ?? r.properties['description'] ?? r.properties['Subtitle'] ?? r.properties['subtitle'] ?? '');
+  return desc.slice(0, 200) || undefined;
 }
 
 function getTags(r: NormalizedRecord): string[] {
@@ -26,8 +27,8 @@ function getUrl(r: NormalizedRecord): string | null {
 }
 ---
 
-<section class="py-8">
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+<section style="padding:1.5rem 0;">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:1rem;">
     {records.map((r) => (
       <EntityCard
         id={r.id}

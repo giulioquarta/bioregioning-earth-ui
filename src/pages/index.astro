@@ -5,6 +5,7 @@ import NetworkSection from '../components/NetworkSection.astro';
 import { loadSectionConfig, fetchSectionRecords } from '../lib/notion';
 
 const sections = loadSectionConfig();
+const base = import.meta.env.BASE_URL;
 
 const sectionsWithData = await Promise.all(
   sections.map(async (s) => {
@@ -13,40 +14,59 @@ const sectionsWithData = await Promise.all(
   })
 );
 
-const mapSections = sectionsWithData.filter(
-  ({ records }) => records.some((r) => {
-    const lat = Number(r.properties['Lat'] ?? r.properties['lat'] ?? r.properties['Latitude']);
-    const lng = Number(r.properties['Lng'] ?? r.properties['lng'] ?? r.properties['Longitude']);
-    return !isNaN(lat) && !isNaN(lng);
-  })
+const totalRecords = sectionsWithData.reduce((sum, { records }) => sum + records.length, 0);
+
+// For dashboard map: include section route with each record so markers link correctly
+const mapMarkers = sectionsWithData.flatMap(({ section, records }) =>
+  records.map(r => ({ ...r, sectionRoute: section.route }))
 );
 
-const allMappableRecords = mapSections.flatMap(({ records }) => records);
+const hasMapData = mapMarkers.some((r) => {
+  const lat = Number(r.properties['Lat'] ?? r.properties['lat'] ?? r.properties['Latitude']);
+  const lng = Number(r.properties['Lng'] ?? r.properties['lng'] ?? r.properties['Longitude']);
+  return !isNaN(lat) && !isNaN(lng);
+});
 ---
 
 <Layout title="Dashboard" description="Explore bioregional actors, projects, and opportunities">
-  <main class="max-w-6xl mx-auto px-4 py-8">
-    <header class="mb-8">
-      <h1 class="text-3xl font-bold text-[var(--fg)]">Bioregioning Earth</h1>
-      <p class="text-[var(--muted)] mt-2">A living interface to the bioregional network.</p>
+  <main style="max-width:var(--max-w);margin:0 auto;padding:2rem 1.5rem;">
+    <header style="margin-bottom:2.5rem;">
+      <h1 style="font-size:2rem;font-weight:700;margin:0 0 0.5rem 0;color:var(--fg);">Bioregioning Earth</h1>
+      <p style="color:var(--muted);margin:0;font-size:1.05rem;">A living interface to the bioregional network. <strong>{totalRecords}</strong> records across <strong>{sections.length}</strong> databases.</p>
     </header>
 
-    {allMappableRecords.length > 0 && (
-      <section class="mb-10">
-        <EarthMap records={allMappableRecords} />
+    {hasMapData && (
+      <section style="margin-bottom:3rem;">
+        <EarthMap records={mapMarkers} />
       </section>
     )}
 
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:1.25rem;margin-bottom:2rem;">
+      {sectionsWithData.map(({ section, records }) => (
+        <a
+          href={`${base}${section.route}`}
+          style="display:block;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);padding:1.5rem;text-decoration:none;transition:transform 0.15s ease,border-color 0.15s ease;"
+          onmouseenter="this.style.transform='translateY(-2px)';this.style.borderColor='var(--accent-dim)';"
+          onmouseleave="this.style.transform='';this.style.borderColor='';"
+        >
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+            <h2 style="margin:0;font-size:1.15rem;font-weight:600;color:var(--fg);">{section.name}</h2>
+            <span style="font-size:0.85rem;color:var(--muted);background:var(--surface);padding:0.25rem 0.6rem;border-radius:999px;">{records.length}</span>
+          </div>
+          <p style="margin:0;font-size:0.9rem;color:var(--muted);line-height:1.45;">{section.description}</p>
+        </a>
+      ))}
+    </div>
+
     {sectionsWithData.map(({ section, records }) => (
-      <section class="py-6" id={section.id}>
-        <div class="flex items-baseline justify-between mb-4">
-          <h2 class="text-xl font-semibold text-[var(--fg)]">
-            <a href={section.route} class="hover:text-[var(--accent)]">{section.name}</a>
+      <section style="margin-bottom:3rem;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0.75rem;">
+          <h2 style="margin:0;font-size:1.3rem;font-weight:600;color:var(--fg);">
+            <a href={`${base}${section.route}`} style="color:var(--fg);">{section.name}</a>
           </h2>
-          <span class="text-sm text-[var(--muted)]">{records.length}</span>
+          <a href={`${base}${section.route}`} style="font-size:0.85rem;color:var(--accent);">View all →</a>
         </div>
-        <p class="text-sm text-[var(--muted)] mb-4">{section.description}</p>
-        <NetworkSection records={records} basePath={section.route} />
+        <NetworkSection records={records.slice(0, 6)} basePath={section.route} />
       </section>
     ))}
   </main>

@@ -6,6 +6,7 @@ export interface Props {
 const { title, description } = Astro.props;
 const siteTitle = 'Bioregioning Earth';
 const pageTitle = title ? `${title} — ${siteTitle}` : siteTitle;
+const base = import.meta.env.BASE_URL;
 ---
 
 <!DOCTYPE html>
@@ -15,15 +16,19 @@ const pageTitle = title ? `${title} — ${siteTitle}` : siteTitle;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{pageTitle}</title>
     {description && <meta name="description" content={description} />}
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
     <style is:global>
       :root {
-        --bg: #0b1d14;
-        --fg: #e8f5e9;
-        --accent: #66bb6a;
-        --muted: #81c784;
-        --card: #143d2b;
-        --border: #1b5e20;
+        --bg: #0a0f0d;
+        --surface: #111a16;
+        --card: #16241e;
+        --border: #1e332a;
+        --fg: #e6f2ec;
+        --muted: #7a9e8e;
+        --accent: #4ade80;
+        --accent-dim: #22c55e;
+        --radius: 12px;
+        --max-w: 1200px;
       }
       * { box-sizing: border-box; }
       html, body {
@@ -31,12 +36,31 @@ const pageTitle = title ? `${title} — ${siteTitle}` : siteTitle;
         padding: 0;
         background: var(--bg);
         color: var(--fg);
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.6;
       }
-      a { color: var(--accent); }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      ::selection { background: var(--accent-dim); color: var(--bg); }
     </style>
   </head>
   <body>
+    <nav style="position:sticky;top:0;z-index:50;background:rgba(10,15,13,0.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);">
+      <div style="max-width:var(--max-w);margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;gap:1rem;">
+        <a href={`${base}/`} style="font-weight:700;font-size:1.1rem;color:var(--fg);white-space:nowrap;">🌱 {siteTitle}</a>
+        <div style="display:flex;gap:1.25rem;flex-wrap:wrap;justify-content:flex-end;">
+          <a href={`${base}/organizations`} style="font-size:0.9rem;color:var(--muted);">Organizations</a>
+          <a href={`${base}/activities`} style="font-size:0.9rem;color:var(--muted);">Activities</a>
+          <a href={`${base}/sources`} style="font-size:0.9rem;color:var(--muted);">Sources</a>
+          <a href={`${base}/ontology`} style="font-size:0.9rem;color:var(--muted);">Ontology</a>
+        </div>
+      </div>
+    </nav>
     <slot />
+    <footer style="border-top:1px solid var(--border);margin-top:4rem;padding:2rem 1.5rem;text-align:center;color:var(--muted);font-size:0.85rem;">
+      <div style="max-width:var(--max-w);margin:0 auto;">
+        Bioregioning Earth — Powered by Notion + Astro
+      </div>
+    </footer>
   </body>
 </html>

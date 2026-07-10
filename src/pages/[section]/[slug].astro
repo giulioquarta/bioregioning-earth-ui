@@ -5,7 +5,7 @@ import type { NormalizedRecord } from '../../lib/notion';
 
 export async function getStaticPaths() {
   const sections = loadSectionConfig();
-  const allPaths: { params: { section: string; slug: string }; props: { record: NormalizedRecord; sectionRoute: string } }[] = [];
+  const allPaths: { params: { section: string; slug: string }; props: { record: NormalizedRecord; sectionRoute: string; sectionName: string } }[] = [];
 
   for (const section of sections) {
     if (!section.database_id) continue;
@@ -16,7 +16,7 @@ export async function getStaticPaths() {
           section: section.route.replace(/^\//, ''),
           slug: r.id.replace(/-/g, ''),
         },
-        props: { record: r, sectionRoute: section.route },
+        props: { record: r, sectionRoute: section.route, sectionName: section.name },
       });
     }
   }
@@ -27,9 +27,11 @@ export async function getStaticPaths() {
 interface Props {
   record: NormalizedRecord;
   sectionRoute: string;
+  sectionName: string;
 }
 
-const { record, sectionRoute } = Astro.props;
+const { record, sectionRoute, sectionName } = Astro.props;
+const base = import.meta.env.BASE_URL;
 
 function getTitle(r: NormalizedRecord): string {
   return String(r.properties['Name'] ?? r.properties['Title'] ?? r.properties['name'] ?? r.properties['title'] ?? 'Untitled');
@@ -40,36 +42,44 @@ function getDescription(r: NormalizedRecord): string {
 }
 
 const title = getTitle(record);
-const description = getDescription(record).slice(0, 160);
+const description = getDescription(record).slice(0, 200);
 ---
 
 <Layout title={title} description={description}>
-  <main class="max-w-3xl mx-auto px-4 py-8">
-    <a href={`${sectionRoute}`} class="text-sm text-[var(--accent)] mb-4 inline-block">← Back to section</a>
-    <h1 class="text-3xl font-bold text-[var(--fg)] mb-4">{title}</h1>
+  <main style="max-width:720px;margin:0 auto;padding:2rem 1.5rem;">
+    <div style="margin-bottom:1.5rem;">
+      <a href={`${base}${sectionRoute}`} style="font-size:0.85rem;color:var(--muted);text-decoration:none;">← {sectionName}</a>
+    </div>
 
-    <div class="rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
-      {description && <p class="text-[var(--fg)] mb-4">{description}</p>}
+    <h1 style="font-size:2rem;font-weight:700;margin:0 0 1rem 0;color:var(--fg);line-height:1.2;">{title}</h1>
 
-      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+    {description && (
+      <p style="font-size:1.05rem;color:var(--fg);line-height:1.6;margin:0 0 1.5rem 0;">{description}</p>
+    )}
+
+    <div style="border-radius:var(--radius);border:1px solid var(--border);background:var(--card);padding:1.5rem;margin-bottom:1.5rem;">
+      <dl style="display:grid;grid-template-columns:1fr;gap:1rem;margin:0;">
         {Object.entries(record.properties).map(([key, value]) => {
-          if (!value || (Array.isArray(value) && value.length === 0)) return null;
+          if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return null;
           return (
-            <div>
-              <dt class="text-[var(--muted)] uppercase tracking-wide text-xs mb-1">{key}</dt>
-              <dd class="text-[var(--fg)]">
+            <div style="display:grid;grid-template-columns:140px 1fr;gap:0.75rem;align-items:start;">
+              <dt style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;padding-top:0.15rem;">{key}</dt>
+              <dd style="margin:0;font-size:0.9rem;color:var(--fg);word-break:break-word;">
                 {Array.isArray(value) ? value.join(', ') : String(value)}
               </dd>
             </div>
           );
         })}
       </dl>
+    </div>
 
-      <div class="mt-6">
-        <a href={record.url} target="_blank" rel="noopener noreferrer" class="text-[var(--accent)] underline text-sm">
-          View in Notion →
-        </a>
-      </div>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+      <a href={record.url} target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:0.6rem 1.2rem;border-radius:var(--radius);background:var(--surface);color:var(--accent);border:1px solid var(--border);font-size:0.9rem;text-decoration:none;transition:background 0.15s;" onmouseenter="this.style.background='var(--border)'" onmouseleave="this.style.background='var(--surface)'">
+        View in Notion →
+      </a>
+      <a href={`${base}${sectionRoute}`} style="display:inline-block;padding:0.6rem 1.2rem;border-radius:var(--radius);color:var(--muted);font-size:0.9rem;text-decoration:none;">
+        ← Back to {sectionName}
+      </a>
     </div>
   </main>
 </Layout>
