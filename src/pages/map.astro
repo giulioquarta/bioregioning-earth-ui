@@ -11,6 +11,14 @@ if (orgsSection && orgsSection.database_id) {
   records = await fetchDatabaseRecords(orgsSection.database_id);
 }
 
+// DEBUG: log first 2 records to see property structure
+if (records.length > 0) {
+  console.log('DEBUG — First record properties:');
+  for (const [key, val] of Object.entries(records[0].properties)) {
+    console.log(`  "${key}" type=${val?.type} value=${JSON.stringify(val?.[val?.type]).slice(0, 200)}`);
+  }
+}
+
 // Helper: extract lat/lng from a record, supporting both Notion location properties and raw Lat/Lng numbers
 function getCoords(r: any): { lat: number; lng: number; address?: string } | null {
   const props = r.properties ?? {};
