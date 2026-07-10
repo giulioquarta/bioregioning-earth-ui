@@ -7,7 +7,7 @@ sections:
     name: Bioregional Organizations
     description: Bioregional actors and initiatives mapped across territories
     database_id: 3331441510e18010a3b2d72945d092ea
-    route: /
+    route: /organizations
     icon: globe
     # Properties the UI expects: Name, Lat, Lng, Type/Tags, Description, URL
 
