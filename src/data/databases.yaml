@@ -11,14 +11,6 @@ sections:
     icon: globe
     # Properties the UI expects: Name, Lat, Lng, Type/Tags, Description, URL
 
-  - id: activities
-    name: Activities
-    description: Events, workshops, and convenings
-    database_id: 3331441510e180328c25e45f7a0c2d45
-    route: /activities
-    icon: calendar
-    # Properties: Name, Date, Status, Type, Location, Description, URL
-
   - id: sources
     name: Sources
     description: Knowledge sources, references, and publications
