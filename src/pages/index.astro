@@ -66,12 +66,12 @@ const hasMapData = mapMarkers.some((r) => hasCoords(r.properties));
         <a
           href={`${base}${section.route}`}
           style="display:block;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);padding:1.5rem;text-decoration:none;transition:transform 0.15s ease,border-color 0.15s ease;"
-          onmouseenter="this.style.transform='translateY(-2px)';this.style.borderColor='rgba(29,26,22,0.22)';"
+          onmouseenter="this.style.transform='translateY(-2px)';this.style.borderColor='var(--paper-200)';"
           onmouseleave="this.style.transform='';this.style.borderColor='';"
         >
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
-            <h2 style="margin:0;font-size:1.15rem;font-weight:600;color:var(--fg);font-family:var(--serif);">{section.name}</h2>
-            <span style="font-size:0.8rem;color:var(--muted);background:var(--surface);padding:0.25rem 0.6rem;border-radius:999px;font-family:var(--mono);">{records.length}</span>
+            <h2 style="margin:0;font-size:1.15rem;font-weight:600;color:var(--fg);font-family:var(--sans);">{section.name}</h2>
+            <span style="font-size:0.8rem;color:var(--muted);background:var(--surface);padding:0.25rem 0.6rem;border-radius:var(--radius-pill);font-family:var(--mono);">{records.length}</span>
           </div>
           <p style="margin:0;font-size:0.9rem;color:var(--muted);line-height:1.45;">{section.description}</p>
         </a>
@@ -81,10 +81,10 @@ const hasMapData = mapMarkers.some((r) => hasCoords(r.properties));
     {sectionsWithData.map(({ section, records }) => (
       <section style="margin-bottom:3rem;">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1rem;border-bottom:1px dashed var(--border);padding-bottom:0.75rem;">
-          <h2 style="margin:0;font-size:1.3rem;font-weight:600;color:var(--fg);font-family:var(--serif);">
+          <h2 style="margin:0;font-size:1.3rem;font-weight:600;color:var(--fg);font-family:var(--sans);">
             <a href={`${base}${section.route}`} style="color:var(--fg);">{section.name}</a>
           </h2>
-          <a href={`${base}${section.route}`} style="font-size:0.8rem;color:var(--accent);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">View all →</a>
+          <a href={`${base}${section.route}`} style="font-size:0.8rem;color:var(--primary);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">View all →</a>
         </div>
         <NetworkSection records={records.slice(0, 6)} basePath={section.route} />
       </section>

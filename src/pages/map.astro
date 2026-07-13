@@ -47,66 +47,6 @@ function getCoords(r: any): { lat: number; lng: number; address?: string } | nul
   return null;
 }
 
-// Build-time debug: scan ALL records and print a frequency table + lat/lng summary
-if (records.length > 0) {
-  const freq: Record<string, { count: number; types: Set<string>; sample: any }> = {};
-  let totalWithCoords = 0;
-  let locationObjectCoords = 0;
-  let numberCoordsNonZero = 0;
-
-  for (const r of records) {
-    for (const [k, v] of Object.entries(r.properties)) {
-      if (!freq[k]) freq[k] = { count: 0, types: new Set(), sample: v };
-      freq[k].count++;
-      freq[k].types.add(v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);
-
-      // Check object-type location properties (Notion "location" type)
-      const isObj = v !== null && typeof v === 'object' && !Array.isArray(v);
-      if (isObj && 'latitude' in v && 'longitude' in v) {
-        const lat = Number(v.latitude);
-        const lng = Number(v.longitude);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          locationObjectCoords++;
-          totalWithCoords++;
-        }
-      }
-    }
-
-    // Check number-type lat/lng fallbacks
-    const p = r.properties;
-    const nLat = Number(
-      p['Lat'] ?? p['lat'] ?? p['Latitude'] ?? p['latitude'] ??
-      p['location_lat'] ?? p['location_Lat'] ?? p['Location_Lat']
-    );
-    const nLng = Number(
-      p['Lng'] ?? p['lng'] ?? p['Longitude'] ?? p['longitude'] ??
-      p['location_lng'] ?? p['location_Lng'] ?? p['Location_Lng']
-    );
-    if (!isNaN(nLat) && !isNaN(nLng) && (nLat !== 0 || nLng !== 0)) {
-      numberCoordsNonZero++;
-      totalWithCoords++;
-    }
-  }
-
-  const table = Object.entries(freq)
-    .map(([k, v]) => ({
-      property: k,
-      presentIn: `${v.count}/${records.length}`,
-      types: Array.from(v.types).join('|'),
-      sample: JSON.stringify(v.sample).slice(0, 120),
-    }))
-    .sort((a, b) => b.presentIn.localeCompare(a.presentIn));
-
-  console.log('[map.astro debug] === PROPERTY FREQUENCY TABLE ===');
-  for (const row of table) {
-    console.log(`  ${row.property.padEnd(22)} | ${row.presentIn.padStart(7)} | ${row.types.padStart(12)} | ${row.sample}`);
-  }
-  console.log(`[map.astro debug] Total records: ${records.length}`);
-  console.log(`[map.astro debug] Object-type coords (Place/location): ${locationObjectCoords}`);
-  console.log(`[map.astro debug] Number-type coords non-zero (lat/lng): ${numberCoordsNonZero}`);
-  console.log(`[map.astro debug] Total records with valid coords: ${totalWithCoords}`);
-}
-
 const markers = records
   .map((r) => {
     const coords = getCoords(r);
@@ -124,7 +64,7 @@ const hasMapData = markers.length > 0;
 ---
 
 <Layout title="Map" description="Interactive map of bioregional organizations">
-  <main style="position:relative;height:calc(100vh - 56px);overflow:hidden;background:var(--ivory);">
+  <main style="position:relative;height:calc(100vh - 56px);overflow:hidden;background:var(--bg);">
     {hasMapData ? (
       <>
         <!-- Full-screen map -->
@@ -133,18 +73,18 @@ const hasMapData = markers.length > 0;
         <!-- Floating sidebar -->
         <aside
           id="map-sidebar"
-          style="position:absolute;top:1rem;left:1rem;width:300px;max-height:calc(100% - 2rem);overflow-y:auto;background:rgba(251,249,243,0.94);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;z-index:10;box-shadow:0 4px 24px rgba(29,26,22,0.08);"
+          style="position:absolute;top:1rem;left:1rem;width:300px;max-height:calc(100% - 2rem);overflow-y:auto;background:rgba(255,255,255,0.94);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;z-index:10;box-shadow:0 4px 24px rgba(42,24,16,0.08);"
         >
-          <h2 style="margin:0 0 0.75rem 0;font-size:1.1rem;font-weight:600;color:var(--fg);font-family:var(--serif);">🌍 Organizations ({markers.length})</h2>
+          <h2 style="margin:0 0 0.75rem 0;font-size:1.1rem;font-weight:600;color:var(--fg);font-family:var(--sans);">🌍 Organizations ({markers.length})</h2>
           <div style="display:flex;flex-direction:column;gap:0.5rem;">
             {markers.map((m) => (
               <a
                 href={m.href}
-                style="display:block;padding:0.55rem 0.7rem;border-radius:8px;background:var(--card);border:1px solid var(--border);text-decoration:none;transition:background 0.12s;"
-                onmouseenter="this.style.background='var(--surface)';"
-                onmouseleave="this.style.background='var(--card)';"
+                style="display:block;padding:0.55rem 0.7rem;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);text-decoration:none;transition:background 0.12s;"
+                onmouseenter="this.style.background='var(--paper-200)';"
+                onmouseleave="this.style.background='var(--surface)';"
               >
-                <div style="font-size:0.88rem;font-weight:500;color:var(--fg);margin-bottom:0.15rem;font-family:var(--serif);">{m.name}</div>
+                <div style="font-size:0.88rem;font-weight:500;color:var(--fg);margin-bottom:0.15rem;font-family:var(--sans);">{m.name}</div>
                 <div style="font-size:0.72rem;color:var(--muted);display:flex;gap:0.4rem;flex-wrap:wrap;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;">
                   {m.type && <span>{m.type}</span>}
                   {m.scope && <span>· {m.scope}</span>}
@@ -157,7 +97,7 @@ const hasMapData = markers.length > 0;
         <!-- Mobile sidebar toggle -->
         <button
           id="sidebar-toggle"
-          style="display:none;position:absolute;top:1rem;left:1rem;z-index:20;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:0.5rem 0.75rem;font-family:var(--mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;cursor:pointer;box-shadow:0 2px 8px rgba(29,26,22,0.08);"
+          style="display:none;position:absolute;top:1rem;left:1rem;z-index:20;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-pill);padding:0.5rem 0.75rem;font-family:var(--mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;cursor:pointer;box-shadow:0 2px 8px rgba(42,24,16,0.08);"
         >
           ☰ List
         </button>
@@ -216,13 +156,13 @@ const hasMapData = markers.length > 0;
 
       for (const m of markers) {
         const el = document.createElement('div');
-        el.style.cssText = 'width:18px;height:18px;border-radius:50%;background:#CDFF58;border:2.5px solid var(--ink);box-shadow:0 2px 8px rgba(0,0,0,0.25);cursor:pointer;transition:transform 0.12s;';
+        el.style.cssText = 'width:18px;height:18px;border-radius:50%;background:var(--primary);border:2.5px solid var(--fg);box-shadow:0 2px 8px rgba(0,0,0,0.25);cursor:pointer;transition:transform 0.12s;';
         el.onmouseenter = () => { el.style.transform = 'scale(1.4)'; };
         el.onmouseleave = () => { el.style.transform = ''; };
 
         const popupHtml = `
           <div style="font-family:system-ui,sans-serif;min-width:180px;">
-            <a href="${m.href}" style="font-weight:700;font-size:0.95rem;color:var(--accent);text-decoration:none;display:block;margin-bottom:0.3rem;">${m.name}</a>
+            <a href="${m.href}" style="font-weight:700;font-size:0.95rem;color:var(--primary);text-decoration:none;display:block;margin-bottom:0.3rem;">${m.name}</a>
             ${m.type ? `<div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.2rem;">${m.type}</div>` : ''}
             ${m.scope ? `<div style="font-size:0.75rem;color:var(--muted);">${m.scope}</div>` : ''}
           </div>

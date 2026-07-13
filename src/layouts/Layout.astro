@@ -19,53 +19,63 @@ const base = import.meta.env.BASE_URL;
     <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,400&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <style is:global>
       :root {
-        /* Editorial / cartographic base from Catalunya actor map design */
-        --paper: #fbf9f3;
-        --ivory: #f6f1e8;
-        --ink: #1d1a16;
-        --rule: #2b2823;
-        --fg: #1d1a16;
-        --muted: #6b6560;
-        --card: #ffffff;
-        --surface: #f6f1e8;
-        --border: rgba(29, 26, 22, 0.10);
+        /* ReFi BCN organic theme — Andrea three-pillar lock (260602) */
+        --paper-50: #F5F5F5;
+        --paper-100: #F1F0EE;
+        --paper-200: #DDD7CF;
+        --paper-700: #41312A;
+        --paper-900: #2A1810;
 
-        /* Accent system: sage editorial + eco-electric map accents */
-        --accent: #5a7a47;
-        --accent-rust: #a05a2c;
-        --accent-blue: #4a6b85;
-        --accent-electric: #CDFF58;
-        --accent-coral: #E25E3C;
-        --accent-lavender: #B8C0FF;
+        --pillar-neural-1: #D9E6FF; --pillar-neural-4: #598FFD; --pillar-neural-6: #2A4A9E;
+        --pillar-tissue-1: #E5F5D8; --pillar-tissue-4: #7CB342; --pillar-tissue-6: #2D5016;
+        --pillar-flow-1: #F9E2C3; --pillar-flow-4: #F0A030; --pillar-flow-6: #8B5038;
 
-        --radius: 12px;
-        --max-w: 1200px;
-        --serif: "Fraunces", "Cormorant Garamond", Georgia, serif;
-        --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        --bg: var(--paper-50);
+        --surface: var(--paper-100);
+        --card: #FFFFFF;
+        --border: var(--paper-200);
+        --fg: var(--paper-900);
+        --muted: var(--paper-700);
+        --primary: var(--pillar-flow-4);
+        --primary-hover: var(--pillar-flow-6);
+        --primary-fg: var(--paper-900);
+        --accent: var(--pillar-neural-1);
+        --accent-fg: var(--pillar-neural-6);
+        --success: #214033;
+        --info: #598FFD;
+
+        --radius: 0.5rem;
+        --radius-sm: 0.25rem;
+        --radius-pill: 9999px;
+        --max-w: 1280px;
+
+        --sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+        --serif: "Averia Serif Libre", Georgia, serif;
+        --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
       }
       * { box-sizing: border-box; }
       html, body {
         margin: 0;
         padding: 0;
-        background: var(--paper);
+        background: var(--bg);
         color: var(--fg);
-        font-family: var(--serif);
-        line-height: 1.6;
+        font-family: var(--sans);
+        line-height: 1.55;
       }
-      a { color: var(--accent); text-decoration: none; }
+      a { color: var(--primary); text-decoration: none; }
       a:hover { text-decoration: underline; }
-      ::selection { background: var(--accent-electric); color: var(--ink); }
+      ::selection { background: var(--accent); color: var(--fg); }
     </style>
   </head>
   <body>
-    <nav style="position:sticky;top:0;z-index:50;background:rgba(251,249,243,0.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);">
+    <nav style="position:sticky;top:0;z-index:50;background:rgba(245,245,245,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);">
       <div style="max-width:var(--max-w);margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;gap:1rem;">
-        <a href={`${base}/`} style="font-weight:700;font-size:1.1rem;color:var(--fg);white-space:nowrap;font-family:var(--serif);">🌱 {siteTitle}</a>
+        <a href={`${base}/`} style="font-weight:600;font-size:1.05rem;color:var(--fg);white-space:nowrap;font-family:var(--serif);">🌱 {siteTitle}</a>
         <div style="display:flex;gap:1.25rem;flex-wrap:wrap;justify-content:flex-end;align-items:center;font-family:var(--mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;">
-          <a href={`${base}/map`} style="color:var(--accent);font-weight:500;">Map</a>
+          <a href={`${base}/map`} style="color:var(--primary);font-weight:500;">Map</a>
           <span style="color:var(--border);">|</span>
           <a href={`${base}/organizations`} style="color:var(--muted);">Organizations</a>
           <a href={`${base}/activities`} style="color:var(--muted);">Activities</a>
