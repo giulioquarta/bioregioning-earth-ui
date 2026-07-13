@@ -1,0 +1,57 @@
+---
+import Layout from '../layouts/Layout.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<Layout title="About" description="About Bioregioning Earth and the Bioregional Knowledge Commons">
+  <main style="max-width:720px;margin:0 auto;padding:2rem 1.5rem;">
+    <header style="margin-bottom:2.5rem;">
+      <p style="font-size:0.8rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin:0 0 0.75rem 0;">
+        <a href={`${base}/`} style="color:var(--muted);">Bioregional Knowledge Commons</a>
+      </p>
+      <h1 style="font-size:clamp(1.8rem, 4vw, 2.6rem);font-weight:500;margin:0 0 1rem 0;color:var(--fg);font-family:var(--serif);letter-spacing:-0.01em;">About</h1>
+    </header>
+
+    <section style="margin-bottom:2.5rem;">
+      <h2 style="font-size:1.4rem;font-weight:600;margin:0 0 1rem 0;color:var(--fg);font-family:var(--sans);">About Bioregioning</h2>
+      <p style="color:var(--fg);font-size:1rem;line-height:1.65;margin:0 0 1rem 0;">
+        Bioregioning is the practice of aligning human communities, economies, and governance with the logic of living systems — watersheds, landscapes, and ecosystems — rather than the administrative borders that shape most modern institutions. It draws on the insight that place has an inherent intelligence: that the boundaries of a river basin, a forest, or a coastal range define communities of interdependence that predate and outlast political lines. Bioregional work asks what it would mean to govern, produce, and belong within those natural boundaries instead.
+      </p>
+      <p style="color:var(--fg);font-size:1rem;line-height:1.65;margin:0;">
+        The term was first developed in the 1970s by thinkers like Peter Berg and Raymond Dasmann, who argued that meaningful ecological and social renewal had to be rooted in place. Today it has expanded into a broad field: from regenerative land stewardship and watershed governance to local food systems, bioregional finance, and new forms of territorial democracy — all asking what it would mean to govern, produce, and belong within natural boundaries instead.
+      </p>
+    </section>
+
+    <section style="margin-bottom:2.5rem;">
+      <h2 style="font-size:1.4rem;font-weight:600;margin:0 0 1rem 0;color:var(--fg);font-family:var(--sans);">About the Database</h2>
+      <p style="color:var(--fg);font-size:1rem;line-height:1.65;margin:0 0 1rem 0;">
+        The Bioregional Knowledge Commons is a public knowledge base documenting organizations, practices, and ideas at the frontier of bioregional work. It maps how communities, institutions, and networks around the world are learning to live and govern within the logic of place — watersheds, landscapes, and living systems rather than administrative borders.
+      </p>
+      <p style="color:var(--fg);font-size:1rem;line-height:1.65;margin:0;">
+        The research behind it draws on publicly available sources: organizational websites, reports, case studies, and interviews. It is not exhaustive — it is a starting point, a living document that grows as the field grows. The goal is to surface knowledge and patterns across bioregional efforts, enabling practitioners to learn from and build upon each other's work more effectively.
+      </p>
+    </section>
+
+    <section style="margin-bottom:2.5rem;">
+      <h2 style="font-size:1.4rem;font-weight:600;margin:0 0 1rem 0;color:var(--fg);font-family:var(--sans);">About the Project</h2>
+      <p style="color:var(--fg);font-size:1rem;line-height:1.65;margin:0 0 1rem 0;">
+        This knowledge base was initiated and developed by <strong>Andrea Farias</strong>, autonomous researcher and member of the workers cooperative <strong>ReFi Barcelona</strong>. It grew out of a research project detailed in the report <a href="https://www.r3-0.org/wp-content/uploads/2025/05/Bioregional-Knowledge-Commons-A-Meta-Perspective.pdf" target="_blank" rel="noopener noreferrer" style="color:var(--primary);text-decoration:underline;">Bioregional Knowledge Commons - A Meta Perspective</a> which later supported the creation of the <strong>Bioregional Knowledge Commons</strong> working group, in partnership with <strong>r3.0</strong>.
+      </p>
+      <p style="color:var(--fg);font-size:1rem;line-height:1.65;margin:0 0 1rem 0;">
+        This knowledge base is incomplete by design. Bioregional work is place-based, plural, and often under-documented — it is an attempt to make more of that work visible and connectable across contexts. Entries will be added, deepened, and corrected over time.
+      </p>
+      <p style="color:var(--fg);font-size:1rem;line-height:1.65;margin:0;">
+        If you'd like to contribute, propose content, or edit your organization, reach out at <a href="mailto:yo@andreaisa.com" style="color:var(--primary);text-decoration:underline;">yo@andreaisa.com</a>.
+      </p>
+    </section>
+
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:2rem;">
+      <a href={`${base}/organizations`} style="display:inline-block;padding:0.6rem 1.2rem;border-radius:var(--radius);background:var(--primary);color:var(--primary-fg);font-size:0.85rem;text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">
+        Explore Organizations →
+      </a>
+      <a href={`${base}/`} style="display:inline-block;padding:0.6rem 1.2rem;border-radius:var(--radius);color:var(--muted);font-size:0.85rem;text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">
+        ← Back to Dashboard
+      </a>
+    </div>
+  </main>
+</Layout>

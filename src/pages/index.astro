@@ -16,6 +16,10 @@ const sectionsWithData = await Promise.all(
 
 const totalRecords = sectionsWithData.reduce((sum, { records }) => sum + records.length, 0);
 
+const orgsSectionData = sectionsWithData.find(({ section }) => section.id === 'bioregional-organizations');
+const orgCount = orgsSectionData?.records.length ?? 0;
+const orgDescription = 'Bioregional actors and initiatives currently mapped';
+
 // For dashboard map: include section route with each record so markers link correctly
 const mapMarkers = sectionsWithData.flatMap(({ section, records }) =>
   records.map(r => ({ ...r, sectionRoute: section.route }))
@@ -51,16 +55,16 @@ const hasMapData = mapMarkers.some((r) => hasCoords(r.properties));
 <Layout title="Dashboard" description="Explore bioregional actors, projects, and opportunities">
   <main style="max-width:var(--max-w);margin:0 auto;padding:2rem 1.5rem;">
     <!-- Welcome block -->
-    <header style="margin-bottom:2.5rem;max-width:720px;">
+    <header style="margin-bottom:2.5rem;">
       <h1 style="font-size:clamp(1.8rem, 4vw, 2.6rem);font-weight:500;margin:0 0 0.5rem 0;color:var(--fg);font-family:var(--serif);letter-spacing:-0.01em;">Welcome to the Bioregional Knowledge Commons</h1>
       <p style="color:var(--muted);margin:0 0 1rem 0;font-size:1.05rem;line-height:1.6;">
         This is a public knowledge base documenting organizations and practices at the frontier of bioregional work — exploring how communities around the world are learning to live and govern within the logic of place.
       </p>
       <p style="color:var(--muted);margin:0;font-size:0.95rem;line-height:1.6;">
-        You can browse the map to explore where groups are practicing bioregional approaches, or switch to <strong>Table view</strong> to dive deeper! For a detailed tour of the database, visit <a href={`${base}/organizations`} style="color:var(--primary);text-decoration:underline;">How to Explore the Knowledge Commons</a>.
+        You can browse the map to explore where groups are practicing bioregional approaches, or click <strong>Table</strong> to see the database. For a detailed tour, visit <a href={`${base}/how-to-explore`} style="color:var(--primary);text-decoration:underline;">How to Explore the Knowledge Commons</a>.
       </p>
       <p style="color:var(--muted);margin:0.75rem 0 0 0;font-size:0.8rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">
-        <strong>{totalRecords}</strong> records across <strong>{sections.length}</strong> databases
+        <strong>{orgCount}</strong> {orgDescription}
       </p>
     </header>
 
@@ -75,6 +79,7 @@ const hasMapData = mapMarkers.some((r) => hasCoords(r.properties));
             </span>
             <a
               href={`${base}/organizations`}
+              onclick="window.location.href=this.href;"
               style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.7rem;font-size:0.8rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;color:var(--muted);text-decoration:none;transition:background 0.12s;"
               onmouseenter="this.style.background='var(--surface)';"
               onmouseleave="this.style.background='';"

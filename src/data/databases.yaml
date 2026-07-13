@@ -5,7 +5,7 @@
 sections:
   - id: bioregional-organizations
     name: Bioregional Organizations
-    description: Bioregional actors and initiatives mapped across territories
+    description: Bioregional actors and initiatives currently mapped
     database_id: 3331441510e18010a3b2d72945d092ea
     route: /organizations
     icon: globe
