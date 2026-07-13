@@ -115,6 +115,10 @@ function extractValue(prop: any): any {
       // Notion returns { latitude, longitude, address } or null
       return prop.location ?? null;
     default:
-      return prop[prop.type];
+      // Unknown type — return small JSON preview so we can debug without crashing
+      const raw = prop[prop.type];
+      if (raw === undefined || raw === null) return raw;
+      if (typeof raw === 'object') return raw;
+      return raw;
   }
 }

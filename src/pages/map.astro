@@ -41,23 +41,46 @@ function getCoords(r: any): { lat: number; lng: number; address?: string } | nul
   return null;
 }
 
-// Build-time debug: log property shapes for the first 2 records (types only, no secrets)
+// Build-time debug: scan ALL records and print a frequency table of every property name
 if (records.length > 0) {
-  for (let i = 0; i < Math.min(2, records.length); i++) {
-    const r = records[i];
-    const shape = Object.fromEntries(
-      Object.entries(r.properties).map(([k, v]) => [
-        k,
-        {
-          type: typeof v,
-          isNull: v === null,
-          isArray: Array.isArray(v),
-          hasLatLng: v && typeof v === 'object' && !Array.isArray(v) && 'latitude' in v && 'longitude' in v,
-        },
-      ])
-    );
-    console.log(`[map.astro debug] Record ${i} (${r.id}):`, JSON.stringify(shape, null, 2));
+  const freq: Record<string, { count: number; types: Set<string>; sample: any }> = {};
+  let totalWithCoords = 0;
+
+  for (const r of records) {
+    for (const [k, v] of Object.entries(r.properties)) {
+      if (!freq[k]) freq[k] = { count: 0, types: new Set(), sample: v };
+      freq[k].count++;
+      freq[k].types.add(v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);
+
+      const isObj = v !== null && typeof v === 'object' && !Array.isArray(v);
+      if (isObj && 'latitude' in v && 'longitude' in v) {
+        const lat = Number(v.latitude);
+        const lng = Number(v.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          totalWithCoords++;
+          if (totalWithCoords === 1) {
+            console.log(`[map.astro debug] FIRST COORDS FOUND in property "${k}": lat=${lat}, lng=${lng}, address=${v.address}`);
+          }
+        }
+      }
+    }
   }
+
+  const table = Object.entries(freq)
+    .map(([k, v]) => ({
+      property: k,
+      presentIn: `${v.count}/${records.length}`,
+      types: Array.from(v.types).join('|'),
+      sample: JSON.stringify(v.sample).slice(0, 120),
+    }))
+    .sort((a, b) => b.presentIn.localeCompare(a.presentIn));
+
+  console.log('[map.astro debug] === PROPERTY FREQUENCY TABLE ===');
+  for (const row of table) {
+    console.log(`  ${row.property.padEnd(22)} | ${row.presentIn.padStart(7)} | ${row.types.padStart(12)} | ${row.sample}`);
+  }
+  console.log(`[map.astro debug] Total records: ${records.length}`);
+  console.log(`[map.astro debug] Records with valid coords: ${totalWithCoords}`);
 }
 
 const markers = records
