@@ -56,10 +56,13 @@ function formatPropertyValue(value: any): string {
 }
 
 function shouldShowProperty(key: string, value: any): boolean {
-  const hiddenKeys = ['SOURCE_FILE', 'TYPE', 'LOCATION_LAT', 'ID', 'LOCATION_LNG', 'NAME'];
-  if (hiddenKeys.includes(key)) return false;
+  const keyLower = key.toLowerCase();
+  const hiddenKeys = ['source_file', 'type', 'location_lat', 'id', 'location_lng', 'name'];
+  if (hiddenKeys.includes(keyLower)) return false;
   if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return false;
-  // Skip raw location objects (they show as [object Object]); the textual Place is kept
+  // Hide location-object Place properties; keep only textual Place
+  if (keyLower === 'place' && typeof value === 'object' && 'latitude' in value && 'longitude' in value) return false;
+  // Skip raw location objects that have no address (they show as [object Object])
   if (typeof value === 'object' && 'latitude' in value && 'longitude' in value && !('address' in value && value.address)) return false;
   return true;
 }
