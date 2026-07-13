@@ -19,10 +19,14 @@ const base = import.meta.env.BASE_URL;
 function hasCoords(props: Record<string, any>): boolean {
   for (const key of Object.keys(props)) {
     const val = props[key];
-    if (val && typeof val === 'object' && 'latitude' in val && 'longitude' in val) {
-      const lat = Number(val.latitude);
-      const lng = Number(val.longitude);
-      if (!isNaN(lat) && !isNaN(lng)) return true;
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const hasLat = val.latitude != null && val.latitude !== '';
+      const hasLng = val.longitude != null && val.longitude !== '';
+      if (hasLat && hasLng) {
+        const lat = Number(val.latitude);
+        const lng = Number(val.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) return true;
+      }
     }
   }
   const lat = Number(props['Lat'] ?? props['lat'] ?? props['Latitude'] ?? props['latitude']);
@@ -35,12 +39,12 @@ const hasMapData = records.some((r) => hasCoords(r.properties));
 
 <Layout title={section.name} description={section.description}>
   <main style="max-width:var(--max-w);margin:0 auto;padding:2rem 1.5rem;">
-    <a href={`${base}/`} style="display:inline-block;font-size:0.85rem;color:var(--muted);margin-bottom:1.25rem;text-decoration:none;">← Back to Dashboard</a>
+    <a href={`${base}/`} style="display:inline-block;font-size:0.8rem;color:var(--muted);margin-bottom:1.25rem;text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">← Back to Dashboard</a>
 
     <header style="margin-bottom:2rem;">
-      <h1 style="font-size:2rem;font-weight:700;margin:0 0 0.5rem 0;color:var(--fg);">{section.name}</h1>
+      <h1 style="font-size:clamp(1.6rem, 3.2vw, 2.2rem);font-weight:500;margin:0 0 0.5rem 0;color:var(--fg);font-family:var(--serif);letter-spacing:-0.01em;">{section.name}</h1>
       <p style="color:var(--muted);margin:0;font-size:1rem;max-width:640px;">{section.description}</p>
-      <p style="color:var(--muted);margin:0.75rem 0 0 0;font-size:0.9rem;">{records.length} records</p>
+      <p style="color:var(--muted);margin:0.75rem 0 0 0;font-size:0.8rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">{records.length} records</p>
     </header>
 
     {hasMapData && (

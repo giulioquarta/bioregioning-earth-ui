@@ -71,6 +71,14 @@ function normalizePage(page: any): NormalizedRecord {
   };
 }
 
+export function debugPropertyShape(prop: any): { type: string; valueType: string; hasLatLng: boolean } {
+  const type = prop?.type ?? 'unknown';
+  const raw = prop?.[type];
+  const valueType = raw === null ? 'null' : Array.isArray(raw) ? 'array' : typeof raw;
+  const hasLatLng = raw && typeof raw === 'object' && !Array.isArray(raw) && 'latitude' in raw && 'longitude' in raw;
+  return { type, valueType, hasLatLng };
+}
+
 function extractValue(prop: any): any {
   switch (prop.type) {
     case 'title':
@@ -104,6 +112,7 @@ function extractValue(prop: any): any {
     case 'files':
       return prop.files?.map((f: any) => f.external?.url ?? f.file?.url) ?? [];
     case 'location':
+      // Notion returns { latitude, longitude, address } or null
       return prop.location ?? null;
     default:
       return prop[prop.type];

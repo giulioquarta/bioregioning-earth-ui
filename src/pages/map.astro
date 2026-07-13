@@ -18,11 +18,15 @@ function getCoords(r: any): { lat: number; lng: number; address?: string } | nul
   // 1. Try Notion "location" type property (e.g. "Place", "Location")
   for (const key of Object.keys(props)) {
     const val = props[key];
-    if (val && typeof val === 'object' && 'latitude' in val && 'longitude' in val) {
-      const lat = Number(val.latitude);
-      const lng = Number(val.longitude);
-      if (!isNaN(lat) && !isNaN(lng)) {
-        return { lat, lng, address: val.address };
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const hasLat = val.latitude != null && val.latitude !== '';
+      const hasLng = val.longitude != null && val.longitude !== '';
+      if (hasLat && hasLng) {
+        const lat = Number(val.latitude);
+        const lng = Number(val.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { lat, lng, address: val.address };
+        }
       }
     }
   }
@@ -35,6 +39,25 @@ function getCoords(r: any): { lat: number; lng: number; address?: string } | nul
   }
 
   return null;
+}
+
+// Build-time debug: log property shapes for the first 2 records (types only, no secrets)
+if (records.length > 0) {
+  for (let i = 0; i < Math.min(2, records.length); i++) {
+    const r = records[i];
+    const shape = Object.fromEntries(
+      Object.entries(r.properties).map(([k, v]) => [
+        k,
+        {
+          type: typeof v,
+          isNull: v === null,
+          isArray: Array.isArray(v),
+          hasLatLng: v && typeof v === 'object' && !Array.isArray(v) && 'latitude' in v && 'longitude' in v,
+        },
+      ])
+    );
+    console.log(`[map.astro debug] Record ${i} (${r.id}):`, JSON.stringify(shape, null, 2));
+  }
 }
 
 const markers = records
@@ -54,25 +77,28 @@ const hasMapData = markers.length > 0;
 ---
 
 <Layout title="Map" description="Interactive map of bioregional organizations">
-  <main style="position:relative;height:calc(100vh - 56px);overflow:hidden;">
+  <main style="position:relative;height:calc(100vh - 56px);overflow:hidden;background:var(--ivory);">
     {hasMapData ? (
       <>
         <!-- Full-screen map -->
         <div id="map-fullscreen" style="position:absolute;inset:0;" data-markers={JSON.stringify(markers)}></div>
 
         <!-- Floating sidebar -->
-        <aside style="position:absolute;top:1rem;left:1rem;width:300px;max-height:calc(100% - 2rem);overflow-y:auto;background:rgba(10,15,13,0.92);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;z-index:10;">
-          <h2 style="margin:0 0 0.75rem 0;font-size:1.1rem;font-weight:600;color:var(--fg);">🌍 Organizations ({markers.length})</h2>
+        <aside
+          id="map-sidebar"
+          style="position:absolute;top:1rem;left:1rem;width:300px;max-height:calc(100% - 2rem);overflow-y:auto;background:rgba(251,249,243,0.94);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;z-index:10;box-shadow:0 4px 24px rgba(29,26,22,0.08);"
+        >
+          <h2 style="margin:0 0 0.75rem 0;font-size:1.1rem;font-weight:600;color:var(--fg);font-family:var(--serif);">🌍 Organizations ({markers.length})</h2>
           <div style="display:flex;flex-direction:column;gap:0.5rem;">
             {markers.map((m) => (
               <a
                 href={m.href}
-                style="display:block;padding:0.55rem 0.7rem;border-radius:8px;background:var(--surface);border:1px solid var(--border);text-decoration:none;transition:background 0.12s;"
-                onmouseenter="this.style.background='var(--card)';"
-                onmouseleave="this.style.background='var(--surface)';"
+                style="display:block;padding:0.55rem 0.7rem;border-radius:8px;background:var(--card);border:1px solid var(--border);text-decoration:none;transition:background 0.12s;"
+                onmouseenter="this.style.background='var(--surface)';"
+                onmouseleave="this.style.background='var(--card)';"
               >
-                <div style="font-size:0.88rem;font-weight:500;color:var(--fg);margin-bottom:0.15rem;">{m.name}</div>
-                <div style="font-size:0.72rem;color:var(--muted);display:flex;gap:0.4rem;flex-wrap:wrap;">
+                <div style="font-size:0.88rem;font-weight:500;color:var(--fg);margin-bottom:0.15rem;font-family:var(--serif);">{m.name}</div>
+                <div style="font-size:0.72rem;color:var(--muted);display:flex;gap:0.4rem;flex-wrap:wrap;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;">
                   {m.type && <span>{m.type}</span>}
                   {m.scope && <span>· {m.scope}</span>}
                 </div>
@@ -80,13 +106,24 @@ const hasMapData = markers.length > 0;
             ))}
           </div>
         </aside>
+
+        <!-- Mobile sidebar toggle -->
+        <button
+          id="sidebar-toggle"
+          style="display:none;position:absolute;top:1rem;left:1rem;z-index:20;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:0.5rem 0.75rem;font-family:var(--mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;cursor:pointer;box-shadow:0 2px 8px rgba(29,26,22,0.08);"
+        >
+          ☰ List
+        </button>
       </>
     ) : (
       <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);padding:2rem;text-align:center;">
         <div>
           <div style="font-size:1.5rem;margin-bottom:0.75rem;">🗺️</div>
-          <p style="margin:0 0 0.5rem 0;">No geolocated organizations found.</p>
-          <p style="margin:0;font-size:0.9rem;opacity:0.7;">Check that your Notion database has a <strong>Place</strong> (location) property or <strong>Lat/Lng</strong> number properties.</p>
+          <p style="margin:0 0 0.5rem 0;font-family:var(--serif);font-weight:500;">No geolocated organizations found.</p>
+          <p style="margin:0;font-size:0.9rem;opacity:0.7;font-family:var(--mono);">Check that your Notion database has a <strong>Place</strong> (location) property or <strong>Lat/Lng</strong> number properties.</p>
+          {records.length > 0 && (
+            <p style="margin-top:1rem;font-size:0.8rem;font-family:var(--mono);opacity:0.6;">{records.length} records loaded, none with valid coordinates.</p>
+          )}
         </div>
       </div>
     )}
@@ -132,7 +169,7 @@ const hasMapData = markers.length > 0;
 
       for (const m of markers) {
         const el = document.createElement('div');
-        el.style.cssText = 'width:18px;height:18px;border-radius:50%;background:var(--accent);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:pointer;transition:transform 0.12s;';
+        el.style.cssText = 'width:18px;height:18px;border-radius:50%;background:#CDFF58;border:2.5px solid var(--ink);box-shadow:0 2px 8px rgba(0,0,0,0.25);cursor:pointer;transition:transform 0.12s;';
         el.onmouseenter = () => { el.style.transform = 'scale(1.4)'; };
         el.onmouseleave = () => { el.style.transform = ''; };
 
@@ -161,6 +198,35 @@ const hasMapData = markers.length > 0;
 
       if (markers.length > 1) {
         map.fitBounds(bounds, { padding: 80, maxZoom: 10 });
+      }
+
+      // Mobile sidebar toggle
+      const sidebar = document.getElementById('map-sidebar');
+      const toggle = document.getElementById('sidebar-toggle');
+      if (sidebar && toggle) {
+        const mq = window.matchMedia('(max-width: 640px)');
+        function apply() {
+          if (mq.matches) {
+            toggle.style.display = 'block';
+            sidebar.style.display = 'none';
+            sidebar.style.top = '3.5rem';
+            sidebar.style.left = '0.5rem';
+            sidebar.style.right = '0.5rem';
+            sidebar.style.width = 'auto';
+          } else {
+            toggle.style.display = 'none';
+            sidebar.style.display = 'block';
+            sidebar.style.top = '1rem';
+            sidebar.style.left = '1rem';
+            sidebar.style.right = '';
+            sidebar.style.width = '300px';
+          }
+        }
+        apply();
+        mq.addEventListener('change', apply);
+        toggle.addEventListener('click', () => {
+          sidebar.style.display = sidebar.style.display === 'none' ? 'block' : 'none';
+        });
       }
     }
 

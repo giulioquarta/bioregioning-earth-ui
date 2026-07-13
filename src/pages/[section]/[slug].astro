@@ -48,10 +48,10 @@ const description = getDescription(record).slice(0, 200);
 <Layout title={title} description={description}>
   <main style="max-width:720px;margin:0 auto;padding:2rem 1.5rem;">
     <div style="margin-bottom:1.5rem;">
-      <a href={`${base}${sectionRoute}`} style="font-size:0.85rem;color:var(--muted);text-decoration:none;">← {sectionName}</a>
+      <a href={`${base}${sectionRoute}`} style="font-size:0.8rem;color:var(--muted);text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">← {sectionName}</a>
     </div>
 
-    <h1 style="font-size:2rem;font-weight:700;margin:0 0 1rem 0;color:var(--fg);line-height:1.2;">{title}</h1>
+    <h1 style="font-size:clamp(1.8rem, 3.5vw, 2.4rem);font-weight:500;margin:0 0 1rem 0;color:var(--fg);line-height:1.2;font-family:var(--serif);letter-spacing:-0.01em;">{title}</h1>
 
     {description && (
       <p style="font-size:1.05rem;color:var(--fg);line-height:1.6;margin:0 0 1.5rem 0;">{description}</p>
@@ -63,7 +63,7 @@ const description = getDescription(record).slice(0, 200);
           if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return null;
           return (
             <div style="display:grid;grid-template-columns:140px 1fr;gap:0.75rem;align-items:start;">
-              <dt style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;padding-top:0.15rem;">{key}</dt>
+              <dt style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding-top:0.15rem;font-family:var(--mono);">{key}</dt>
               <dd style="margin:0;font-size:0.9rem;color:var(--fg);word-break:break-word;">
                 {Array.isArray(value) ? value.join(', ') : String(value)}
               </dd>
@@ -74,10 +74,10 @@ const description = getDescription(record).slice(0, 200);
     </div>
 
     <div style="display:flex;gap:1rem;flex-wrap:wrap;">
-      <a href={record.url} target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:0.6rem 1.2rem;border-radius:var(--radius);background:var(--surface);color:var(--accent);border:1px solid var(--border);font-size:0.9rem;text-decoration:none;transition:background 0.15s;" onmouseenter="this.style.background='var(--border)'" onmouseleave="this.style.background='var(--surface)'">
+      <a href={record.url} target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:0.6rem 1.2rem;border-radius:var(--radius);background:var(--surface);color:var(--accent);border:1px solid var(--border);font-size:0.85rem;text-decoration:none;transition:background 0.15s;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;" onmouseenter="this.style.background='var(--border)'" onmouseleave="this.style.background='var(--surface)'">
         View in Notion →
       </a>
-      <a href={`${base}${sectionRoute}`} style="display:inline-block;padding:0.6rem 1.2rem;border-radius:var(--radius);color:var(--muted);font-size:0.9rem;text-decoration:none;">
+      <a href={`${base}${sectionRoute}`} style="display:inline-block;padding:0.6rem 1.2rem;border-radius:var(--radius);color:var(--muted);font-size:0.85rem;text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">
         ← Back to {sectionName}
       </a>
     </div>

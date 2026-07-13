@@ -24,10 +24,14 @@ const mapMarkers = sectionsWithData.flatMap(({ section, records }) =>
 function hasCoords(props: Record<string, any>): boolean {
   for (const key of Object.keys(props)) {
     const val = props[key];
-    if (val && typeof val === 'object' && 'latitude' in val && 'longitude' in val) {
-      const lat = Number(val.latitude);
-      const lng = Number(val.longitude);
-      if (!isNaN(lat) && !isNaN(lng)) return true;
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const hasLat = val.latitude != null && val.latitude !== '';
+      const hasLng = val.longitude != null && val.longitude !== '';
+      if (hasLat && hasLng) {
+        const lat = Number(val.latitude);
+        const lng = Number(val.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) return true;
+      }
     }
   }
   const lat = Number(props['Lat'] ?? props['lat'] ?? props['Latitude'] ?? props['latitude']);
@@ -41,8 +45,8 @@ const hasMapData = mapMarkers.some((r) => hasCoords(r.properties));
 <Layout title="Dashboard" description="Explore bioregional actors, projects, and opportunities">
   <main style="max-width:var(--max-w);margin:0 auto;padding:2rem 1.5rem;">
     <header style="margin-bottom:2.5rem;">
-      <h1 style="font-size:2rem;font-weight:700;margin:0 0 0.5rem 0;color:var(--fg);">Bioregioning Earth</h1>
-      <p style="color:var(--muted);margin:0;font-size:1.05rem;">A living interface to the bioregional network. <strong>{totalRecords}</strong> records across <strong>{sections.length}</strong> databases.</p>
+      <h1 style="font-size:clamp(1.8rem, 4vw, 2.6rem);font-weight:500;margin:0 0 0.5rem 0;color:var(--fg);font-family:var(--serif);letter-spacing:-0.01em;">Bioregioning Earth</h1>
+      <p style="color:var(--muted);margin:0;font-size:1.05rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">A living interface to the bioregional network. <strong>{totalRecords}</strong> records across <strong>{sections.length}</strong> databases.</p>
     </header>
 
     {hasMapData && (
@@ -56,12 +60,12 @@ const hasMapData = mapMarkers.some((r) => hasCoords(r.properties));
         <a
           href={`${base}${section.route}`}
           style="display:block;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);padding:1.5rem;text-decoration:none;transition:transform 0.15s ease,border-color 0.15s ease;"
-          onmouseenter="this.style.transform='translateY(-2px)';this.style.borderColor='var(--accent-dim)';"
+          onmouseenter="this.style.transform='translateY(-2px)';this.style.borderColor='rgba(29,26,22,0.22)';"
           onmouseleave="this.style.transform='';this.style.borderColor='';"
         >
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
-            <h2 style="margin:0;font-size:1.15rem;font-weight:600;color:var(--fg);">{section.name}</h2>
-            <span style="font-size:0.85rem;color:var(--muted);background:var(--surface);padding:0.25rem 0.6rem;border-radius:999px;">{records.length}</span>
+            <h2 style="margin:0;font-size:1.15rem;font-weight:600;color:var(--fg);font-family:var(--serif);">{section.name}</h2>
+            <span style="font-size:0.8rem;color:var(--muted);background:var(--surface);padding:0.25rem 0.6rem;border-radius:999px;font-family:var(--mono);">{records.length}</span>
           </div>
           <p style="margin:0;font-size:0.9rem;color:var(--muted);line-height:1.45;">{section.description}</p>
         </a>
@@ -70,11 +74,11 @@ const hasMapData = mapMarkers.some((r) => hasCoords(r.properties));
 
     {sectionsWithData.map(({ section, records }) => (
       <section style="margin-bottom:3rem;">
-        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0.75rem;">
-          <h2 style="margin:0;font-size:1.3rem;font-weight:600;color:var(--fg);">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1rem;border-bottom:1px dashed var(--border);padding-bottom:0.75rem;">
+          <h2 style="margin:0;font-size:1.3rem;font-weight:600;color:var(--fg);font-family:var(--serif);">
             <a href={`${base}${section.route}`} style="color:var(--fg);">{section.name}</a>
           </h2>
-          <a href={`${base}${section.route}`} style="font-size:0.85rem;color:var(--accent);">View all →</a>
+          <a href={`${base}${section.route}`} style="font-size:0.8rem;color:var(--accent);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">View all →</a>
         </div>
         <NetworkSection records={records.slice(0, 6)} basePath={section.route} />
       </section>

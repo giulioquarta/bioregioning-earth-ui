@@ -14,10 +14,14 @@ function getCoords(props: Record<string, any>): { lat: number; lng: number } | n
   // 1. Try Notion "location" type property (e.g. "Place", "Location")
   for (const key of Object.keys(props)) {
     const val = props[key];
-    if (val && typeof val === 'object' && 'latitude' in val && 'longitude' in val) {
-      const lat = Number(val.latitude);
-      const lng = Number(val.longitude);
-      if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const hasLat = val.latitude != null && val.latitude !== '';
+      const hasLng = val.longitude != null && val.longitude !== '';
+      if (hasLat && hasLng) {
+        const lat = Number(val.latitude);
+        const lng = Number(val.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+      }
     }
   }
   // 2. Fall back to raw Lat/Lng number properties
@@ -52,7 +56,7 @@ const markers = records
 
     const markers = JSON.parse(container.dataset.markers || '[]');
     if (markers.length === 0) {
-      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:0.9rem;">No geolocated records to display.</div>';
+      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:0.9rem;font-family:var(--mono);">No geolocated records to display.</div>';
       return;
     }
 
@@ -84,12 +88,12 @@ const markers = records
 
     for (const m of markers) {
       const el = document.createElement('div');
-      el.style.cssText = 'width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;transition:transform 0.1s;';
+      el.style.cssText = 'width:14px;height:14px;border-radius:50%;background:#CDFF58;border:2px solid var(--ink);box-shadow:0 2px 6px rgba(0,0,0,0.2);cursor:pointer;transition:transform 0.1s;';
       el.onmouseenter = () => { el.style.transform = 'scale(1.3)'; };
       el.onmouseleave = () => { el.style.transform = ''; };
 
       const popup = new maplibregl.Popup({ offset: 8, closeButton: false }).setHTML(
-        `<a href="${m.link}" style="font-weight:600;font-size:0.9rem;color:var(--accent);text-decoration:none;">${m.name}</a>`
+        `<a href="${m.link}" style="font-weight:600;font-size:0.9rem;color:var(--accent);text-decoration:none;font-family:var(--serif);">${m.name}</a>`
       );
 
       new maplibregl.Marker({ element: el })
