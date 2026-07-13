@@ -2,6 +2,7 @@
 export interface Props {
   records?: Array<{
     id: string;
+    url?: string;
     properties: Record<string, any>;
     sectionRoute?: string;
   }>;
@@ -11,7 +12,7 @@ const { records = [], basePath = '/' } = Astro.props;
 const base = import.meta.env.BASE_URL;
 
 function getCoords(props: Record<string, any>): { lat: number; lng: number } | null {
-  // 1. Try Notion "location" type property (e.g. "Place", "Location")
+  // 1. Try Notion "location" type property
   for (const key of Object.keys(props)) {
     const val = props[key];
     if (val && typeof val === 'object' && !Array.isArray(val)) {
@@ -24,7 +25,7 @@ function getCoords(props: Record<string, any>): { lat: number; lng: number } | n
       }
     }
   }
-  // 2. Fall back to raw Lat/Lng number properties (including location_lat / location_lng)
+  // 2. Fall back to raw number properties
   const lat = Number(
     props['Lat'] ?? props['lat'] ?? props['Latitude'] ?? props['latitude'] ??
     props['location_lat'] ?? props['location_Lat'] ?? props['Location_Lat']
@@ -37,6 +38,23 @@ function getCoords(props: Record<string, any>): { lat: number; lng: number } | n
   return null;
 }
 
+function formatValue(value: any): string {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') {
+    if ('address' in value && value.address) return String(value.address);
+    if ('latitude' in value && 'longitude' in value) {
+      return `${value.latitude}, ${value.longitude}`;
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '[Object]';
+    }
+  }
+  return String(value);
+}
+
 const markers = records
   .map((r) => {
     const coords = getCoords(r.properties);
@@ -44,25 +62,78 @@ const markers = records
     const name = String(r.properties['Name'] ?? r.properties['Title'] ?? 'Untitled');
     const slug = r.id.replace(/-/g, '');
     const pathPrefix = r.sectionRoute ? r.sectionRoute.replace(/\/$/, '') : basePath.replace(/\/$/, '');
-    const link = `${base}${pathPrefix}/${slug}`;
-    return { id: r.id, lat: coords.lat, lng: coords.lng, name, link };
+    const href = `${base}${pathPrefix}/${slug}`;
+    return {
+      id: r.id,
+      lat: coords.lat,
+      lng: coords.lng,
+      name,
+      href,
+      url: r.url ?? null,
+      properties: r.properties,
+    };
   })
-  .filter(Boolean) as Array<{ id: string; lat: number; lng: number; name: string; link: string }>;
+  .filter(Boolean) as Array<{
+    id: string; lat: number; lng: number; name: string; href: string; url: string | null; properties: Record<string, any>;
+  }>;
 ---
 
-<div id="earth-map" style="width:100%;height:480px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);" data-markers={JSON.stringify(markers)}></div>
+<div style="position:relative;width:100%;height:480px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);">
+  <div id="earth-map" style="width:100%;height:100%;" data-markers={JSON.stringify(markers)}></div>
+
+  <!-- Side panel -->
+  <div
+    id="map-panel"
+    style="display:none;position:absolute;top:0.5rem;right:0.5rem;bottom:0.5rem;width:380px;max-width:calc(100% - 1rem);background:rgba(255,255,255,0.98);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:var(--radius);padding:0;z-index:20;overflow:hidden;box-shadow:0 8px 32px rgba(42,24,16,0.12);font-family:var(--sans);"
+  >
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+      <span style="font-size:0.7rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);">Detail</span>
+      <button id="map-panel-close" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;line-height:1;padding:0;" aria-label="Close panel">✕</button>
+    </div>
+    <div id="map-panel-content" style="padding:1.25rem;overflow-y:auto;height:calc(100% - 52px);"></div>
+  </div>
+</div>
 
 <script>
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
 
-  function initMap() {
-    const container = document.getElementById('earth-map');
-    if (!container) return;
+  function renderProperties(props) {
+    const entries = Object.entries(props).filter(([key, value]) => {
+      if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return false;
+      return true;
+    });
+    if (entries.length === 0) return '';
 
-    const markers = JSON.parse(container.dataset.markers || '[]');
+    function fmt(v) {
+      if (v === null || v === undefined) return '';
+      if (Array.isArray(v)) return v.join(', ');
+      if (typeof v === 'object') {
+        if ('address' in v && v.address) return String(v.address);
+        if ('latitude' in v && 'longitude' in v) return `${v.latitude}, ${v.longitude}`;
+        try { return JSON.stringify(v); } catch { return '[Object]'; }
+      }
+      return String(v);
+    }
+
+    return `<dl style="display:grid;grid-template-columns:1fr;gap:0.85rem;margin:0;">
+      ${entries.map(([key, value]) => {
+        const display = fmt(value);
+        return `<div style="display:grid;grid-template-columns:120px 1fr;gap:0.6rem;align-items:start;">
+          <dt style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding-top:0.15rem;font-family:var(--mono);">${key}</dt>
+          <dd style="margin:0;font-size:0.85rem;color:var(--fg);word-break:break-word;line-height:1.45;">${display}</dd>
+        </div>`;
+      }).join('')}
+    </dl>`;
+  }
+
+  function initMap() {
+    const mapContainer = document.getElementById('earth-map');
+    if (!mapContainer) return;
+
+    const markers = JSON.parse(mapContainer.dataset.markers || '[]');
     if (markers.length === 0) {
-      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:0.9rem;font-family:var(--mono);">No geolocated records to display.</div>';
+      mapContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:0.9rem;font-family:var(--mono);">No geolocated records to display.</div>';
       return;
     }
 
@@ -70,7 +141,7 @@ const markers = records
     const avgLng = markers.reduce((s, m) => s + m.lng, 0) / markers.length;
 
     const map = new maplibregl.Map({
-      container,
+      container: mapContainer,
       style: {
         version: 8,
         sources: {
@@ -91,31 +162,74 @@ const markers = records
     map.addControl(new maplibregl.FullscreenControl(), 'top-left');
 
     const bounds = new maplibregl.LngLatBounds();
+    const panel = document.getElementById('map-panel');
+    const panelContent = document.getElementById('map-panel-content');
+    const panelClose = document.getElementById('map-panel-close');
+
+    function getDescription(props) {
+      return String(props['Description'] ?? props['description'] ?? props['Notes'] ?? props['notes'] ?? '');
+    }
+
+    function showPanel(m) {
+      if (!panel || !panelContent) return;
+      const desc = getDescription(m.properties);
+      const descHtml = desc ? `<p style="font-size:1rem;color:var(--fg);line-height:1.6;margin:0 0 1.25rem 0;">${desc}</p>` : '';
+      const propsHtml = renderProperties(m.properties);
+      const notionHtml = m.url ? `<a href="${m.url}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:0.55rem 1rem;border-radius:var(--radius);background:var(--surface);color:var(--primary);border:1px solid var(--border);font-size:0.8rem;text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;transition:background 0.15s;" onmouseenter="this.style.background='var(--paper-200)'" onmouseleave="this.style.background='var(--surface)'">View in Notion →</a>` : '';
+
+      panelContent.innerHTML = `
+        <h2 style="font-size:clamp(1.4rem, 3vw, 1.8rem);font-weight:500;margin:0 0 0.75rem 0;color:var(--fg);line-height:1.2;font-family:var(--serif);letter-spacing:-0.01em;">${m.name}</h2>
+        ${descHtml}
+        <div style="border-radius:var(--radius);border:1px solid var(--border);background:var(--card);padding:1.25rem;margin-bottom:1.25rem;">
+          ${propsHtml}
+        </div>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <a href="${m.href}" style="display:inline-block;padding:0.55rem 1rem;border-radius:var(--radius);background:var(--primary);color:var(--primary-fg);font-size:0.8rem;text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;">View full page →</a>
+          ${notionHtml}
+        </div>
+      `;
+      panel.style.display = 'block';
+    }
+
+    function hidePanel() {
+      if (panel) panel.style.display = 'none';
+    }
+
+    panelClose?.addEventListener('click', hidePanel);
+    panel?.addEventListener('click', (e) => e.stopPropagation());
 
     for (const m of markers) {
       const el = document.createElement('div');
-      // Use a flex wrapper so the tooltip can center without CSS transform (avoids MapLibre disappearing bug)
+      // Flex wrapper so tooltip centres without CSS transform (avoids MapLibre disappearing bug)
       el.style.cssText = 'width:max-content;min-width:14px;height:14px;display:flex;align-items:flex-end;justify-content:center;position:relative;cursor:pointer;';
 
       const dot = document.createElement('div');
-      dot.style.cssText = 'width:14px;height:14px;border-radius:50%;background:var(--primary);border:2px solid var(--fg);box-shadow:0 2px 6px rgba(0,0,0,0.2);flex-shrink:0;';
+      dot.style.cssText = 'width:14px;height:14px;border-radius:50%;background:var(--primary);border:2px solid var(--fg);box-shadow:0 2px 6px rgba(0,0,0,0.2);flex-shrink:0;transition:background 0.15s,border-color 0.15s;';
       el.appendChild(dot);
 
       const tip = document.createElement('div');
       tip.textContent = m.name;
-      tip.style.cssText = 'position:absolute;bottom:18px;left:0;right:0;width:max-content;margin:0 auto;background:var(--fg);color:var(--paper-50);padding:0.3rem 0.6rem;border-radius:var(--radius-sm);font-size:0.75rem;font-family:var(--sans);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:30;';
+      tip.style.cssText = 'position:absolute;bottom:20px;left:0;right:0;width:max-content;margin:0 auto;background:var(--paper-900);color:var(--paper-50);padding:0.4rem 0.8rem;border-radius:var(--radius);font-size:0.8rem;font-family:var(--sans);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.18s;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:30;';
       el.appendChild(tip);
 
-      el.addEventListener('mouseenter', () => { tip.style.opacity = '1'; dot.style.borderColor = 'var(--primary)'; dot.style.background = 'var(--fg)'; });
-      el.addEventListener('mouseleave', () => { tip.style.opacity = '0'; dot.style.borderColor = 'var(--fg)'; dot.style.background = 'var(--primary)'; });
+      el.addEventListener('mouseenter', () => {
+        tip.style.opacity = '1';
+        dot.style.borderColor = 'var(--primary)';
+        dot.style.background = 'var(--fg)';
+      });
+      el.addEventListener('mouseleave', () => {
+        tip.style.opacity = '0';
+        dot.style.borderColor = 'var(--fg)';
+        dot.style.background = 'var(--primary)';
+      });
 
-      const popup = new maplibregl.Popup({ offset: 8, closeButton: false }).setHTML(
-        `<a href="${m.link}" style="font-weight:600;font-size:0.9rem;color:var(--primary);text-decoration:none;font-family:var(--sans);">${m.name}</a>`
-      );
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showPanel(m);
+      });
 
       new maplibregl.Marker({ element: el })
         .setLngLat([m.lng, m.lat])
-        .setPopup(popup)
         .addTo(map);
 
       bounds.extend([m.lng, m.lat]);
@@ -124,6 +238,8 @@ const markers = records
     if (markers.length > 1) {
       map.fitBounds(bounds, { padding: 40, maxZoom: 8 });
     }
+
+    map.on('click', hidePanel);
   }
 
   if (document.readyState === 'loading') {
