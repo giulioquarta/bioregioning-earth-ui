@@ -110,17 +110,6 @@ const hasMapData = mapMarkers.some((r) => hasCoords(r.properties));
       ))}
     </div>
 
-    <!-- Section previews -->
-    {sectionsWithData.map(({ section, records }) => (
-      <section style="margin-bottom:3rem;">
-        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1rem;border-bottom:1px dashed var(--border);padding-bottom:0.75rem;">
-          <h2 style="margin:0;font-size:1.3rem;font-weight:600;color:var(--fg);font-family:var(--sans);">
-            <a href={`${base}${section.route}`} style="color:var(--fg);">{section.name}</a>
-          </h2>
-          <a href={`${base}${section.route}`} style="font-size:0.8rem;color:var(--primary);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">View all →</a>
-        </div>
-        <NetworkSection records={records.slice(0, 6)} basePath={section.route} />
-      </section>
-    ))}
+    <!-- End landing page -->
   </main>
 </Layout>

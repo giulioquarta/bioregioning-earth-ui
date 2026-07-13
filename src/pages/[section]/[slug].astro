@@ -41,6 +41,29 @@ function getDescription(r: NormalizedRecord): string {
   return String(r.properties['Description'] ?? r.properties['description'] ?? r.properties['Notes'] ?? r.properties['notes'] ?? '');
 }
 
+function formatPropertyValue(value: any): string {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') {
+    // Notion location type — return address if available
+    if ('address' in value && value.address) return String(value.address);
+    if ('latitude' in value && 'longitude' in value) {
+      return `${value.latitude}, ${value.longitude}`;
+    }
+    try { return JSON.stringify(value); } catch { return '[Object]'; }
+  }
+  return String(value);
+}
+
+function shouldShowProperty(key: string, value: any): boolean {
+  const hiddenKeys = ['SOURCE_FILE', 'TYPE', 'LOCATION_LAT', 'ID', 'LOCATION_LNG', 'NAME'];
+  if (hiddenKeys.includes(key)) return false;
+  if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return false;
+  // Skip raw location objects (they show as [object Object]); the textual Place is kept
+  if (typeof value === 'object' && 'latitude' in value && 'longitude' in value && !('address' in value && value.address)) return false;
+  return true;
+}
+
 const title = getTitle(record);
 const description = getDescription(record).slice(0, 200);
 ---
@@ -51,21 +74,17 @@ const description = getDescription(record).slice(0, 200);
       <a href={`${base}${sectionRoute}`} style="font-size:0.8rem;color:var(--muted);text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">← {sectionName}</a>
     </div>
 
-    <h1 style="font-size:clamp(1.8rem, 3.5vw, 2.4rem);font-weight:500;margin:0 0 1rem 0;color:var(--fg);line-height:1.2;font-family:var(--serif);letter-spacing:-0.01em;">{title}</h1>
-
-    {description && (
-      <p style="font-size:1.05rem;color:var(--fg);line-height:1.6;margin:0 0 1.5rem 0;">{description}</p>
-    )}
+    <h1 style="font-size:clamp(1.8rem, 3.5vw, 2.4rem);font-weight:500;margin:0 0 1.5rem 0;color:var(--fg);line-height:1.2;font-family:var(--serif);letter-spacing:-0.01em;">{title}</h1>
 
     <div style="border-radius:var(--radius);border:1px solid var(--border);background:var(--card);padding:1.5rem;margin-bottom:1.5rem;">
       <dl style="display:grid;grid-template-columns:1fr;gap:1rem;margin:0;">
         {Object.entries(record.properties).map(([key, value]) => {
-          if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return null;
+          if (!shouldShowProperty(key, value)) return null;
           return (
             <div style="display:grid;grid-template-columns:140px 1fr;gap:0.75rem;align-items:start;">
               <dt style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding-top:0.15rem;font-family:var(--mono);">{key}</dt>
               <dd style="margin:0;font-size:0.9rem;color:var(--fg);word-break:break-word;">
-                {Array.isArray(value) ? value.join(', ') : String(value)}
+                {formatPropertyValue(value)}
               </dd>
             </div>
           );
