@@ -31,20 +31,28 @@ function getCoords(r: any): { lat: number; lng: number; address?: string } | nul
     }
   }
 
-  // 2. Fall back to raw Lat/Lng number properties
-  const lat = Number(props['Lat'] ?? props['lat'] ?? props['Latitude'] ?? props['latitude']);
-  const lng = Number(props['Lng'] ?? props['lng'] ?? props['Longitude'] ?? props['longitude']);
-  if (!isNaN(lat) && !isNaN(lng)) {
+  // 2. Fall back to raw Lat/Lng number properties (including location_lat / location_lng)
+  const lat = Number(
+    props['Lat'] ?? props['lat'] ?? props['Latitude'] ?? props['latitude'] ??
+    props['location_lat'] ?? props['location_Lat'] ?? props['Location_Lat']
+  );
+  const lng = Number(
+    props['Lng'] ?? props['lng'] ?? props['Longitude'] ?? props['longitude'] ??
+    props['location_lng'] ?? props['location_Lng'] ?? props['Location_Lng']
+  );
+  if (!isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0)) {
     return { lat, lng };
   }
 
   return null;
 }
 
-// Build-time debug: scan ALL records and print a frequency table of every property name
+// Build-time debug: scan ALL records and print a frequency table + lat/lng summary
 if (records.length > 0) {
   const freq: Record<string, { count: number; types: Set<string>; sample: any }> = {};
   let totalWithCoords = 0;
+  let locationObjectCoords = 0;
+  let numberCoordsNonZero = 0;
 
   for (const r of records) {
     for (const [k, v] of Object.entries(r.properties)) {
@@ -52,17 +60,31 @@ if (records.length > 0) {
       freq[k].count++;
       freq[k].types.add(v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);
 
+      // Check object-type location properties (Notion "location" type)
       const isObj = v !== null && typeof v === 'object' && !Array.isArray(v);
       if (isObj && 'latitude' in v && 'longitude' in v) {
         const lat = Number(v.latitude);
         const lng = Number(v.longitude);
         if (!isNaN(lat) && !isNaN(lng)) {
+          locationObjectCoords++;
           totalWithCoords++;
-          if (totalWithCoords === 1) {
-            console.log(`[map.astro debug] FIRST COORDS FOUND in property "${k}": lat=${lat}, lng=${lng}, address=${v.address}`);
-          }
         }
       }
+    }
+
+    // Check number-type lat/lng fallbacks
+    const p = r.properties;
+    const nLat = Number(
+      p['Lat'] ?? p['lat'] ?? p['Latitude'] ?? p['latitude'] ??
+      p['location_lat'] ?? p['location_Lat'] ?? p['Location_Lat']
+    );
+    const nLng = Number(
+      p['Lng'] ?? p['lng'] ?? p['Longitude'] ?? p['longitude'] ??
+      p['location_lng'] ?? p['location_Lng'] ?? p['Location_Lng']
+    );
+    if (!isNaN(nLat) && !isNaN(nLng) && (nLat !== 0 || nLng !== 0)) {
+      numberCoordsNonZero++;
+      totalWithCoords++;
     }
   }
 
@@ -80,7 +102,9 @@ if (records.length > 0) {
     console.log(`  ${row.property.padEnd(22)} | ${row.presentIn.padStart(7)} | ${row.types.padStart(12)} | ${row.sample}`);
   }
   console.log(`[map.astro debug] Total records: ${records.length}`);
-  console.log(`[map.astro debug] Records with valid coords: ${totalWithCoords}`);
+  console.log(`[map.astro debug] Object-type coords (Place/location): ${locationObjectCoords}`);
+  console.log(`[map.astro debug] Number-type coords non-zero (lat/lng): ${numberCoordsNonZero}`);
+  console.log(`[map.astro debug] Total records with valid coords: ${totalWithCoords}`);
 }
 
 const markers = records
