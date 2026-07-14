@@ -1,6 +1,9 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import NetworkSection from '../../components/NetworkSection.astro';
+import OntologyGallery from '../../components/OntologyGallery.astro';
+import SourcesTable from '../../components/SourcesTable.astro';
+import OrganizationsTable from '../../components/OrganizationsTable.astro';
 import EarthMap from '../../components/EarthMap.astro';
 import { loadSectionConfig, fetchSectionRecords } from '../../lib/notion';
 
@@ -67,6 +70,8 @@ function getUrl(r: any): string | null {
 
 const hasMapData = records.some((r) => hasCoords(r.properties));
 const isOrgs = section.id === 'bioregional-organizations';
+const isOntology = section.id === 'ontology';
+const isSources = section.id === 'sources';
 
 // Build markers with full panel data
 const markers = records
@@ -126,40 +131,13 @@ const markers = records
     <!-- Table view for Organizations -->
     {isOrgs && (
       <section style="margin-bottom:2.5rem;">
-        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);">
-          <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
-            <thead>
-              <tr style="border-bottom:1px solid var(--border);background:var(--surface);">
-                <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;">Name</th>
-                <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;">Type</th>
-                <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;">Location</th>
-                <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;">Link</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((r) => {
-                const slug = r.id.replace(/-/g, '');
-                const href = `${base}${section.route}/${slug}`;
-                return (
-                  <tr style="border-bottom:1px solid var(--border);transition:background 0.12s;" onmouseenter="this.style.background='var(--surface)'" onmouseleave="this.style.background=''">
-                    <td style="padding:0.6rem 1rem;color:var(--fg);font-weight:500;">
-                      <a href={href} style="color:var(--fg);text-decoration:none;">{getTitle(r)}</a>
-                    </td>
-                    <td style="padding:0.6rem 1rem;color:var(--muted);">{getType(r)}</td>
-                    <td style="padding:0.6rem 1rem;color:var(--muted);">{getLocation(r)}</td>
-                    <td style="padding:0.6rem 1rem;">
-                      <a href={href} style="color:var(--primary);font-family:var(--mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.03em;">View →</a>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <OrganizationsTable records={records} basePath={section.route} />
       </section>
     )}
 
-    <!-- Card view for non-Orgs -->
-    {!isOrgs && <NetworkSection records={records} basePath={section.route} />}
+    <!-- Section-specific views -->
+    {isOntology && <OntologyGallery records={records} basePath={section.route} />}
+    {isSources && <SourcesTable records={records} basePath={section.route} />}
+    {!isOrgs && !isOntology && !isSources && <NetworkSection records={records} basePath={section.route} />}
   </main>
 </Layout>

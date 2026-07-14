@@ -11,6 +11,7 @@ function getClient(): Client {
 export interface NormalizedRecord {
   id: string;
   url: string;
+  icon?: string;
   createdTime: string;
   lastEditedTime: string;
   properties: Record<string, any>;
@@ -61,6 +62,7 @@ function normalizePage(page: any): NormalizedRecord {
   return {
     id: page.id,
     url: page.url,
+    icon: page.icon?.type === 'emoji' ? page.icon.emoji : undefined,
     createdTime: page.created_time,
     lastEditedTime: page.last_edited_time,
     properties: Object.fromEntries(

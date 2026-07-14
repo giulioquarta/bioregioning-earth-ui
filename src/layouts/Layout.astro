@@ -2,8 +2,9 @@
 export interface Props {
   title?: string;
   description?: string;
+  hideFooter?: boolean;
 }
-const { title, description } = Astro.props;
+const { title, description, hideFooter = false } = Astro.props;
 const siteTitle = 'Bioregioning Earth';
 const pageTitle = title ? `${title} — ${siteTitle}` : siteTitle;
 const base = import.meta.env.BASE_URL;
@@ -73,21 +74,27 @@ const base = import.meta.env.BASE_URL;
   <body>
     <nav style="position:sticky;top:0;z-index:50;background:rgba(245,245,245,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);">
       <div style="max-width:var(--max-w);margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;gap:1rem;">
-        <a href={`${base}/`} style="font-weight:600;font-size:1.05rem;color:var(--fg);white-space:nowrap;font-family:var(--serif);">🌱 {siteTitle}</a>
-        <div style="display:flex;gap:0.85rem;flex-wrap:wrap;justify-content:flex-end;align-items:center;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.03em;">
-          <a href={`${base}/organizations`} style="color:var(--muted);">Organizations</a>
+        <a href={`${base}/`} style="font-weight:600;font-size:1.05rem;color:var(--fg);white-space:nowrap;font-family:var(--sans);">🌱 {siteTitle}</a>
+        <div style="display:flex;gap:1.1rem;flex-wrap:wrap;justify-content:flex-end;align-items:center;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.03em;">
+          <a href={`${base}/`} style="color:var(--muted);">Organizations</a>
+          <span style="color:var(--border);font-size:0.9rem;">·</span>
           <a href={`${base}/sources`} style="color:var(--muted);">Sources</a>
+          <span style="color:var(--border);font-size:0.9rem;">·</span>
           <a href={`${base}/ontology`} style="color:var(--muted);">Ontology</a>
-          <a href={`${base}/how-to-explore`} style="color:var(--muted);">How to Explore the Knowledge Commons</a>
+          <span style="color:var(--border);font-size:0.9rem;">·</span>
+          <a href={`${base}/how-to-explore`} style="color:var(--muted);">How to Explore</a>
+          <span style="color:var(--border);font-size:0.9rem;">·</span>
           <a href={`${base}/about`} style="color:var(--muted);">About</a>
         </div>
       </div>
     </nav>
     <slot />
-    <footer style="border-top:1px solid var(--border);margin-top:4rem;padding:2rem 1.5rem;text-align:center;color:var(--muted);font-size:0.8rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">
-      <div style="max-width:var(--max-w);margin:0 auto;">
-        Bioregioning Earth — Powered by Notion + Astro
-      </div>
-    </footer>
+    {!hideFooter && (
+      <footer style="border-top:1px solid var(--border);margin-top:4rem;padding:2rem 1.5rem;text-align:center;color:var(--muted);font-size:0.8rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">
+        <div style="max-width:var(--max-w);margin:0 auto;">
+          Bioregioning Earth — Powered by Notion + Astro
+        </div>
+      </footer>
+    )}
   </body>
 </html>

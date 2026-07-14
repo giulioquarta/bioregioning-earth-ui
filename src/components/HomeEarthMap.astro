@@ -1,0 +1,278 @@
+---
+export interface Props {
+  records?: Array<{
+    id: string;
+    url?: string;
+    properties: Record<string, any>;
+    sectionRoute?: string;
+  }>;
+  basePath?: string;
+  orgCount?: number;
+  orgDescription?: string;
+}
+const { records = [], basePath = '/', orgCount = 0, orgDescription = '' } = Astro.props;
+const base = import.meta.env.BASE_URL;
+
+function getCoords(props: Record<string, any>): { lat: number; lng: number } | null {
+  for (const key of Object.keys(props)) {
+    const val = props[key];
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const hasLat = val.latitude != null && val.latitude !== '';
+      const hasLng = val.longitude != null && val.longitude !== '';
+      if (hasLat && hasLng) {
+        const lat = Number(val.latitude);
+        const lng = Number(val.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+      }
+    }
+  }
+  const lat = Number(
+    props['Lat'] ?? props['lat'] ?? props['Latitude'] ?? props['latitude'] ??
+    props['location_lat'] ?? props['location_Lat'] ?? props['Location_Lat']
+  );
+  const lng = Number(
+    props['Lng'] ?? props['lng'] ?? props['Longitude'] ?? props['longitude'] ??
+    props['location_lng'] ?? props['location_Lng'] ?? props['Location_Lng']
+  );
+  if (!isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0)) return { lat, lng };
+  return null;
+}
+
+const markers = records
+  .map((r) => {
+    const coords = getCoords(r.properties);
+    if (!coords) return null;
+    const name = String(r.properties['Name'] ?? r.properties['Title'] ?? 'Untitled');
+    const slug = r.id.replace(/-/g, '');
+    const pathPrefix = r.sectionRoute ? r.sectionRoute.replace(/\/$/, '') : basePath.replace(/\/$/, '');
+    const href = `${base}${pathPrefix}/${slug}`;
+    return {
+      id: r.id,
+      lat: coords.lat,
+      lng: coords.lng,
+      name,
+      href,
+      url: r.url ?? null,
+      properties: r.properties,
+    };
+  })
+  .filter(Boolean) as Array<{
+    id: string; lat: number; lng: number; name: string; href: string; url: string | null; properties: Record<string, any>;
+  }>;
+---
+
+<div style="position:relative;width:100%;height:100%;overflow:hidden;">
+  <div id="home-map" style="width:100%;height:100%;" data-markers={JSON.stringify(markers)} data-base={base}></div>
+
+  <!-- Side panel -->
+  <div
+    id="home-panel"
+    style="position:absolute;top:0.5rem;right:0.5rem;bottom:0.5rem;width:400px;max-width:40%;background:rgba(255,255,255,0.98);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 8px 32px rgba(42,24,16,0.12);font-family:var(--sans);z-index:20;display:flex;flex-direction:column;"
+  >
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.875rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <span id="panel-welcome-label" style="font-size:0.7rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);">Welcome</span>
+      <button id="panel-back-btn" style="display:none;background:none;border:none;color:var(--muted);font-size:0.8rem;cursor:pointer;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;padding:0;" aria-label="Back to welcome">← Back</button>
+    </div>
+
+    <!-- Scrollable content -->
+    <div id="panel-content" style="padding:1.25rem;overflow-y:auto;flex:1;">
+
+      <!-- Welcome view -->
+      <div id="panel-welcome">
+        <h1 style="font-size:clamp(1.5rem, 2.5vw, 2rem);font-weight:500;margin:0 0 0.6rem 0;color:var(--fg);font-family:var(--serif);letter-spacing:-0.01em;line-height:1.2;">Welcome to the Bioregional Knowledge Commons</h1>
+        <p style="color:var(--muted);margin:0 0 0.75rem 0;font-size:0.9rem;line-height:1.55;">This is a public knowledge base documenting organizations and practices at the frontier of bioregional work — exploring how communities around the world are learning to live and govern within the logic of place.</p>
+        <p style="color:var(--muted);margin:0 0 1rem 0;font-size:0.75rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">
+          <strong style="color:var(--fg);">{orgCount}</strong> {orgDescription}
+        </p>
+
+        <!-- Map / Table toggle -->
+        <div style="display:inline-flex;gap:0;overflow:hidden;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);margin-bottom:1rem;">
+          <span style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.7rem;font-size:0.75rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;background:var(--primary);color:var(--primary-fg);font-weight:500;cursor:default;">🗺️ Map</span>
+          <a href="#table" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.7rem;font-size:0.75rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;color:var(--muted);text-decoration:none;transition:background 0.12s;" onmouseenter="this.style.background='var(--surface)'" onmouseleave="this.style.background=''">🗂️ Table</a>
+        </div>
+
+        <p style="margin:0;font-size:0.75rem;line-height:1.5;">
+          <a href={`${base}/how-to-explore`} style="color:var(--primary);">How to Explore</a>
+          · <a href={`${base}/about`} style="color:var(--primary);">About</a>
+        </p>
+      </div>
+
+      <!-- Detail view -->
+      <div id="panel-detail" style="display:none;"></div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  import maplibregl from 'maplibre-gl';
+  import 'maplibre-gl/dist/maplibre-gl.css';
+
+  function getDescription(props) {
+    return String(props['Description'] ?? props['description'] ?? props['Notes'] ?? props['notes'] ?? '');
+  }
+
+  function formatValue(value) {
+    if (value === null || value === undefined) return '';
+    if (Array.isArray(value)) return value.join(', ');
+    if (typeof value === 'object') {
+      if ('address' in value && value.address) return String(value.address);
+      if ('latitude' in value && 'longitude' in value) return `${value.latitude}, ${value.longitude}`;
+      try { return JSON.stringify(value); } catch { return '[Object]'; }
+    }
+    return String(value);
+  }
+
+  function shouldShowProperty(key, value) {
+    const keyLower = key.toLowerCase();
+    const hiddenKeys = ['source_file', 'type', 'location_lat', 'id', 'location_lng', 'name'];
+    if (hiddenKeys.includes(keyLower)) return false;
+    if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return false;
+    if (keyLower === 'place' && typeof value === 'object' && 'latitude' in value && 'longitude' in value) return false;
+    if (typeof value === 'object' && 'latitude' in value && 'longitude' in value && !('address' in value && value.address)) return false;
+    return true;
+  }
+
+  function renderProperties(props) {
+    const entries = Object.entries(props).filter(([key, value]) => shouldShowProperty(key, value));
+    if (entries.length === 0) return '';
+    return `<dl style="display:grid;grid-template-columns:1fr;gap:0.85rem;margin:0;">
+      ${entries.map(([key, value]) => {
+        const display = formatValue(value);
+        return `<div style="display:grid;grid-template-columns:110px 1fr;gap:0.5rem;align-items:start;">
+          <dt style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding-top:0.15rem;font-family:var(--mono);">${key}</dt>
+          <dd style="margin:0;font-size:0.8rem;color:var(--fg);word-break:break-word;line-height:1.45;">${display}</dd>
+        </div>`;
+      }).join('')}
+    </dl>`;
+  }
+
+  function initMap() {
+    const container = document.getElementById('home-map');
+    if (!container) return;
+
+    const markers = JSON.parse(container.dataset.markers || '[]');
+    const base = container.dataset.base || '';
+
+    if (markers.length === 0) {
+      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:0.9rem;font-family:var(--mono);">No geolocated records to display.</div>';
+      return;
+    }
+
+    const avgLat = markers.reduce((s, m) => s + m.lat, 0) / markers.length;
+    const avgLng = markers.reduce((s, m) => s + m.lng, 0) / markers.length;
+
+    const map = new maplibregl.Map({
+      container,
+      style: {
+        version: 8,
+        sources: {
+          osm: {
+            type: 'raster',
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            attribution: '&copy; OpenStreetMap contributors',
+          },
+        },
+        layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+      },
+      center: [avgLng || 0, avgLat || 20],
+      zoom: markers.length === 1 ? 4 : 2,
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), 'top-left');
+    map.addControl(new maplibregl.FullscreenControl(), 'top-left');
+
+    const bounds = new maplibregl.LngLatBounds();
+
+    const welcomeDiv = document.getElementById('panel-welcome');
+    const detailDiv = document.getElementById('panel-detail');
+    const welcomeLabel = document.getElementById('panel-welcome-label');
+    const backBtn = document.getElementById('panel-back-btn');
+    const contentDiv = document.getElementById('panel-content');
+    const panel = document.getElementById('home-panel');
+
+    function showWelcome() {
+      detailDiv.style.display = 'none';
+      welcomeDiv.style.display = 'block';
+      welcomeLabel.style.display = 'inline';
+      backBtn.style.display = 'none';
+      if (contentDiv) contentDiv.scrollTop = 0;
+    }
+
+    function showDetail(m) {
+      welcomeDiv.style.display = 'none';
+      welcomeLabel.style.display = 'none';
+      backBtn.style.display = 'inline-block';
+
+      const desc = getDescription(m.properties);
+      const descHtml = desc ? `<p style="font-size:0.95rem;color:var(--fg);line-height:1.6;margin:0 0 1rem 0;">${desc}</p>` : '';
+      const propsHtml = renderProperties(m.properties);
+
+      detailDiv.innerHTML = `
+        <h2 style="font-size:clamp(1.3rem, 2.5vw, 1.6rem);font-weight:500;margin:0 0 0.6rem 0;color:var(--fg);line-height:1.2;font-family:var(--serif);letter-spacing:-0.01em;">${m.name}</h2>
+        ${descHtml}
+        <div style="border-radius:var(--radius);border:1px solid var(--border);background:var(--card);padding:1rem;margin-bottom:1rem;">
+          ${propsHtml}
+        </div>
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+          <a href="${m.href}" style="display:inline-block;padding:0.5rem 0.9rem;border-radius:var(--radius);background:var(--primary);color:var(--primary-fg);font-size:0.75rem;text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;">View full page →</a>
+        </div>
+      `;
+      detailDiv.style.display = 'block';
+      if (contentDiv) contentDiv.scrollTop = 0;
+    }
+
+    backBtn?.addEventListener('click', showWelcome);
+    panel?.addEventListener('click', (e) => e.stopPropagation());
+
+    for (const m of markers) {
+      const el = document.createElement('div');
+      el.style.cssText = 'width:max-content;min-width:14px;height:14px;display:flex;align-items:flex-end;justify-content:center;position:relative;cursor:pointer;';
+
+      const dot = document.createElement('div');
+      dot.style.cssText = 'width:14px;height:14px;border-radius:50%;background:var(--primary);border:2px solid var(--fg);box-shadow:0 2px 6px rgba(0,0,0,0.2);flex-shrink:0;transition:background 0.15s,border-color 0.15s;';
+      el.appendChild(dot);
+
+      const tip = document.createElement('div');
+      tip.textContent = m.name;
+      tip.style.cssText = 'position:absolute;bottom:20px;left:0;right:0;width:max-content;margin:0 auto;background:var(--paper-900);color:var(--paper-50);padding:0.4rem 0.8rem;border-radius:var(--radius);font-size:0.8rem;font-family:var(--sans);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.18s;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:30;';
+      el.appendChild(tip);
+
+      el.addEventListener('mouseenter', () => {
+        tip.style.opacity = '1';
+        dot.style.borderColor = 'var(--primary)';
+        dot.style.background = 'var(--fg)';
+      });
+      el.addEventListener('mouseleave', () => {
+        tip.style.opacity = '0';
+        dot.style.borderColor = 'var(--fg)';
+        dot.style.background = 'var(--primary)';
+      });
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showDetail(m);
+      });
+
+      new maplibregl.Marker({ element: el })
+        .setLngLat([m.lng, m.lat])
+        .addTo(map);
+
+      bounds.extend([m.lng, m.lat]);
+    }
+
+    if (markers.length > 1) {
+      map.fitBounds(bounds, { padding: 40, maxZoom: 8 });
+    }
+
+    map.on('click', showWelcome);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMap);
+  } else {
+    initMap();
+  }
+</script>

@@ -77,7 +77,10 @@ const description = getDescription(record).slice(0, 200);
       <a href={`${base}${sectionRoute}`} style="font-size:0.8rem;color:var(--muted);text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">← {sectionName}</a>
     </div>
 
-    <h1 style="font-size:clamp(1.8rem, 3.5vw, 2.4rem);font-weight:500;margin:0 0 1.5rem 0;color:var(--fg);line-height:1.2;font-family:var(--serif);letter-spacing:-0.01em;">{title}</h1>
+    <h1 style="font-size:clamp(1.8rem, 3.5vw, 2.4rem);font-weight:500;margin:0 0 1.5rem 0;color:var(--fg);line-height:1.2;font-family:var(--serif);letter-spacing:-0.01em;">
+      {record.icon && <span style="margin-right:0.5rem;">{record.icon}</span>}
+      {title}
+    </h1>
 
     <div style="border-radius:var(--radius);border:1px solid var(--border);background:var(--card);padding:1.5rem;margin-bottom:1.5rem;">
       <dl style="display:grid;grid-template-columns:1fr;gap:1rem;margin:0;">
@@ -96,9 +99,6 @@ const description = getDescription(record).slice(0, 200);
     </div>
 
     <div style="display:flex;gap:1rem;flex-wrap:wrap;">
-      <a href={record.url} target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:0.6rem 1.2rem;border-radius:var(--radius);background:var(--surface);color:var(--primary);border:1px solid var(--border);font-size:0.85rem;text-decoration:none;transition:background 0.15s;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;" onmouseenter="this.style.background='var(--paper-200)'" onmouseleave="this.style.background='var(--surface)'">
-        View in Notion →
-      </a>
       <a href={`${base}${sectionRoute}`} style="display:inline-block;padding:0.6rem 1.2rem;border-radius:var(--radius);color:var(--muted);font-size:0.85rem;text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">
         ← Back to {sectionName}
       </a>

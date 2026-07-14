@@ -1,0 +1,85 @@
+---
+import type { NormalizedRecord } from '../lib/notion';
+
+export interface Props {
+  records: NormalizedRecord[];
+  basePath?: string;
+}
+const { records, basePath = '/' } = Astro.props;
+const base = import.meta.env.BASE_URL;
+
+function getTitle(r: NormalizedRecord): string {
+  return String(r.properties['Name'] ?? r.properties['Title'] ?? r.properties['name'] ?? r.properties['title'] ?? 'Untitled');
+}
+
+function getSourceType(r: NormalizedRecord): string {
+  return String(r.properties['Source type'] ?? r.properties['Source Type'] ?? r.properties['source_type'] ?? r.properties['source type'] ?? r.properties['Type'] ?? r.properties['type'] ?? '');
+}
+
+function getUrl(r: NormalizedRecord): string | null {
+  return r.properties['URL'] ?? r.properties['Url'] ?? r.properties['url'] ?? r.properties['Website'] ?? r.properties['website'] ?? null;
+}
+
+function emojiForSourceType(type: string): string {
+  const t = type.toLowerCase().trim();
+  if (!t) return '📄';
+  if (t.includes('report')) return '📊';
+  if (t.includes('article')) return '📄';
+  if (t.includes('essay')) return '📝';
+  if (t.includes('book')) return '📚';
+  if (t.includes('video')) return '🎥';
+  if (t.includes('podcast')) return '🎙️';
+  if (t.includes('website')) return '🌐';
+  if (t.includes('tool')) return '🛠️';
+  if (t.includes('case study') || t.includes('case-study')) return '📋';
+  if (t.includes('talk') || t.includes('presentation')) return '🎤';
+  if (t.includes('whitepaper') || t.includes('white paper')) return '📑';
+  if (t.includes('guide') || t.includes('handbook')) return '🧭';
+  if (t.includes('course')) return '🎓';
+  if (t.includes('dataset') || t.includes('data')) return '🗂️';
+  if (t.includes('map')) return '🗺️';
+  if (t.includes('paper') || t.includes('research')) return '📑';
+  if (t.includes('blog')) return '📰';
+  if (t.includes('newsletter')) return '📧';
+  return '📄';
+}
+---
+
+<div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);">
+  <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+    <thead>
+      <tr style="border-bottom:1px solid var(--border);background:var(--surface);">
+        <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;">Type</th>
+        <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;">Name</th>
+        <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;">Link</th>
+      </tr>
+    </thead>
+    <tbody>
+      {records.map((r) => {
+        const slug = r.id.replace(/-/g, '');
+        const href = `${base}${basePath.replace(/\/$/, '')}/${slug}`;
+        const sourceType = getSourceType(r);
+        const emoji = emojiForSourceType(sourceType);
+        const externalUrl = getUrl(r);
+        return (
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.6rem 1rem;color:var(--muted);white-space:nowrap;">
+              <span style="margin-right:0.35rem;">{emoji}</span>
+              <span style="font-size:0.8rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.02em;">{sourceType}</span>
+            </td>
+            <td style="padding:0.6rem 1rem;color:var(--fg);font-weight:500;">
+              <a href={href} style="color:var(--fg);text-decoration:none;">{getTitle(r)}</a>
+            </td>
+            <td style="padding:0.6rem 1rem;">
+              {externalUrl ? (
+                <a href={externalUrl} target="_blank" rel="noopener noreferrer" style="color:var(--primary);font-family:var(--mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.03em;">Open →</a>
+              ) : (
+                <a href={href} style="color:var(--primary);font-family:var(--mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.03em;">View →</a>
+              )}
+            </td>
+          </tr>
+        );
+      })}
+    </tbody>
+  </table>
+</div>

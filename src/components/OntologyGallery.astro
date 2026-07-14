@@ -1,0 +1,107 @@
+---
+import type { NormalizedRecord } from '../lib/notion';
+
+export interface Props {
+  records: NormalizedRecord[];
+  basePath?: string;
+}
+const { records, basePath = '/' } = Astro.props;
+const base = import.meta.env.BASE_URL;
+
+function getTitle(r: NormalizedRecord): string {
+  return String(r.properties['Name'] ?? r.properties['Title'] ?? r.properties['name'] ?? r.properties['title'] ?? 'Untitled');
+}
+
+function getDescription(r: NormalizedRecord): string {
+  return String(r.properties['Description'] ?? r.properties['description'] ?? '');
+}
+
+function getIcon(r: NormalizedRecord): string {
+  return r.icon ?? '•';
+}
+
+// Detect a self-referential relation property that links ontology items to parents.
+function findParentRelationKey(items: NormalizedRecord[]): string | null {
+  const itemIds = new Set(items.map((r) => r.id));
+  const candidateScores: Record<string, number> = {};
+
+  for (const r of items) {
+    for (const [key, value] of Object.entries(r.properties)) {
+      if (Array.isArray(value) && value.length > 0 && value.every((v) => typeof v === 'string' && v.replace(/-/g, '').length === 32)) {
+        if (value.some((v) => itemIds.has(v))) {
+          candidateScores[key] = (candidateScores[key] ?? 0) + 1;
+        }
+      }
+    }
+  }
+
+  const sorted = Object.entries(candidateScores).sort((a, b) => b[1] - a[1]);
+  return sorted[0]?.[0] ?? null;
+}
+
+const parentKey = findParentRelationKey(records);
+
+const parents: NormalizedRecord[] = [];
+const childrenByParent: Record<string, NormalizedRecord[]> = {};
+
+for (const r of records) {
+  const rawParent = parentKey ? r.properties[parentKey] : null;
+  const parentId = Array.isArray(rawParent) ? rawParent[0] : rawParent;
+
+  if (!parentId) {
+    parents.push(r);
+  } else {
+    if (!childrenByParent[parentId]) childrenByParent[parentId] = [];
+    childrenByParent[parentId].push(r);
+  }
+}
+
+// Sort parents alphabetically, children alphabetically under each parent.
+parents.sort((a, b) => getTitle(a).localeCompare(getTitle(b)));
+for (const pid of Object.keys(childrenByParent)) {
+  childrenByParent[pid].sort((a, b) => getTitle(a).localeCompare(getTitle(b)));
+}
+---
+
+<div style="display:flex;flex-direction:column;gap:1.5rem;">
+  {parents.map((parent) => {
+    const slug = parent.id.replace(/-/g, '');
+    const href = `${base}${basePath.replace(/\/$/, '')}/${slug}`;
+    const children = childrenByParent[parent.id] ?? [];
+
+    return (
+      <section style="border:1px solid var(--border);border-radius:var(--radius);background:var(--card);overflow:hidden;">
+        <div style="padding:1.25rem 1.5rem;background:var(--surface);border-bottom:1px solid var(--border);">
+          <a href={href} style="display:flex;align-items:center;gap:0.75rem;text-decoration:none;color:var(--fg);">
+            <span style="font-size:1.6rem;line-height:1;">{getIcon(parent)}</span>
+            <h2 style="margin:0;font-size:1.25rem;font-weight:600;font-family:var(--sans);letter-spacing:-0.01em;">{getTitle(parent)}</h2>
+          </a>
+          {getDescription(parent) && (
+            <p style="margin:0.5rem 0 0 0;color:var(--muted);font-size:0.9rem;line-height:1.5;">{getDescription(parent)}</p>
+          )}
+        </div>
+
+        {children.length > 0 && (
+          <div style="padding:1.25rem 1.5rem;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:0.75rem;">
+              {children.map((child) => {
+                const childSlug = child.id.replace(/-/g, '');
+                const childHref = `${base}${basePath.replace(/\/$/, '')}/${childSlug}`;
+                const childDesc = getDescription(child);
+                return (
+                  <a href={childHref} style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.85rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);text-decoration:none;color:var(--fg);">
+                    <span style="font-size:1.2rem;line-height:1;flex-shrink:0;">{getIcon(child)}</span>
+                    <div style="min-width:0;">
+                      <h3 style="margin:0;font-size:0.9rem;font-weight:600;font-family:var(--sans);line-height:1.3;">{getTitle(child)}</h3>
+                      {childDesc && <p style="margin:0.3rem 0 0 0;color:var(--muted);font-size:0.78rem;line-height:1.4;">{childDesc.length > 120 ? childDesc.slice(0, 120) + '...' : childDesc}</p>}
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  })}
+</div>
