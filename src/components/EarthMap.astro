@@ -12,16 +12,14 @@ const { records = [], basePath = '/' } = Astro.props;
 const base = import.meta.env.BASE_URL;
 
 function getCoords(props: Record<string, any>): { lat: number; lng: number } | null {
-  // 1. Try Notion "location" type property
+  // 1. Try Notion "location" / "place" type property (uses lat/lon)
   for (const key of Object.keys(props)) {
     const val = props[key];
     if (val && typeof val === 'object' && !Array.isArray(val)) {
-      const hasLat = val.latitude != null && val.latitude !== '';
-      const hasLng = val.longitude != null && val.longitude !== '';
-      if (hasLat && hasLng) {
-        const lat = Number(val.latitude);
-        const lng = Number(val.longitude);
-        if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+      const lat = val.latitude != null ? Number(val.latitude) : val.lat != null ? Number(val.lat) : null;
+      const lng = val.longitude != null ? Number(val.longitude) : val.lon != null ? Number(val.lon) : null;
+      if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+        return { lat, lng };
       }
     }
   }
@@ -43,6 +41,7 @@ function formatValue(value: any): string {
   if (Array.isArray(value)) return value.join(', ');
   if (typeof value === 'object') {
     if ('address' in value && value.address) return String(value.address);
+    if ('name' in value && value.name) return String(value.name);
     if ('latitude' in value && 'longitude' in value) {
       return `${value.latitude}, ${value.longitude}`;
     }
@@ -63,6 +62,7 @@ const markers = records
     const slug = r.id.replace(/-/g, '');
     const pathPrefix = r.sectionRoute ? r.sectionRoute.replace(/\/$/, '') : basePath.replace(/\/$/, '');
     const href = `${base}${pathPrefix}/${slug}`;
+    const caseStudy = r.properties['Case Study'] ?? null;
     return {
       id: r.id,
       lat: coords.lat,
@@ -71,10 +71,11 @@ const markers = records
       href,
       url: r.url ?? null,
       properties: r.properties,
+      caseStudy,
     };
   })
   .filter(Boolean) as Array<{
-    id: string; lat: number; lng: number; name: string; href: string; url: string | null; properties: Record<string, any>;
+    id: string; lat: number; lng: number; name: string; href: string; url: string | null; properties: Record<string, any>; caseStudy: string | null;
   }>;
 ---
 
@@ -110,6 +111,7 @@ const markers = records
       if (Array.isArray(v)) return v.join(', ');
       if (typeof v === 'object') {
         if ('address' in v && v.address) return String(v.address);
+        if ('name' in v && v.name) return String(v.name);
         if ('latitude' in v && 'longitude' in v) return `${v.latitude}, ${v.longitude}`;
         try { return JSON.stringify(v); } catch { return '[Object]'; }
       }
@@ -158,8 +160,8 @@ const markers = records
       zoom: markers.length === 1 ? 4 : 2,
     });
 
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    map.addControl(new maplibregl.FullscreenControl(), 'top-left');
+    map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+    map.addControl(new maplibregl.FullscreenControl(), 'bottom-left');
 
     const bounds = new maplibregl.LngLatBounds();
     const panel = document.getElementById('map-panel');
@@ -167,7 +169,7 @@ const markers = records
     const panelClose = document.getElementById('map-panel-close');
 
     function getDescription(props) {
-      return String(props['Description'] ?? props['description'] ?? props['Notes'] ?? props['notes'] ?? '');
+      return String(props['description'] ?? props['Description'] ?? props['Notes'] ?? props['notes'] ?? '');
     }
 
     function showPanel(m) {
@@ -197,38 +199,15 @@ const markers = records
     panel?.addEventListener('click', (e) => e.stopPropagation());
 
     for (const m of markers) {
-      const el = document.createElement('div');
-      // Flex wrapper so tooltip centres without CSS transform (avoids MapLibre disappearing bug)
-      el.style.cssText = 'width:max-content;min-width:14px;height:14px;display:flex;align-items:flex-end;justify-content:center;position:relative;cursor:pointer;';
+      const pinColor = m.caseStudy === 'Y' ? '#F0A030' : '#B0A090';
+      const marker = new maplibregl.Marker({ color: pinColor, scale: 0.8 })
+        .setLngLat([m.lng, m.lat])
+        .addTo(map);
 
-      const dot = document.createElement('div');
-      dot.style.cssText = 'width:14px;height:14px;border-radius:50%;background:var(--primary);border:2px solid var(--fg);box-shadow:0 2px 6px rgba(0,0,0,0.2);flex-shrink:0;transition:background 0.15s,border-color 0.15s;';
-      el.appendChild(dot);
-
-      const tip = document.createElement('div');
-      tip.textContent = m.name;
-      tip.style.cssText = 'position:absolute;bottom:20px;left:0;right:0;width:max-content;margin:0 auto;background:var(--paper-900);color:var(--paper-50);padding:0.4rem 0.8rem;border-radius:var(--radius);font-size:0.8rem;font-family:var(--sans);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.18s;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:30;';
-      el.appendChild(tip);
-
-      el.addEventListener('mouseenter', () => {
-        tip.style.opacity = '1';
-        dot.style.borderColor = 'var(--primary)';
-        dot.style.background = 'var(--fg)';
-      });
-      el.addEventListener('mouseleave', () => {
-        tip.style.opacity = '0';
-        dot.style.borderColor = 'var(--fg)';
-        dot.style.background = 'var(--primary)';
-      });
-
-      el.addEventListener('click', (e) => {
+      marker.getElement().addEventListener('click', (e) => {
         e.stopPropagation();
         showPanel(m);
       });
-
-      new maplibregl.Marker({ element: el })
-        .setLngLat([m.lng, m.lat])
-        .addTo(map);
 
       bounds.extend([m.lng, m.lat]);
     }

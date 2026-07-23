@@ -26,3 +26,6 @@ sections:
     route: /ontology
     icon: network
     # Properties: Name, Category, Definition, Related, Status, URL
+
+related_databases:
+  activities: 3331441510e180328c25e45f7a0c2d45

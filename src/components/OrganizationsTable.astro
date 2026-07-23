@@ -1,11 +1,18 @@
 ---
 import type { NormalizedRecord } from '../lib/notion';
+import OrgDetail from './OrgDetail.astro';
 
 export interface Props {
   records: NormalizedRecord[];
   basePath?: string;
+  lookups?: {
+    tags?: Map<string, NormalizedRecord>;
+    activities?: Map<string, NormalizedRecord>;
+    sources?: Map<string, NormalizedRecord>;
+    affiliations?: Map<string, NormalizedRecord>;
+  };
 }
-const { records, basePath = '/' } = Astro.props;
+const { records, basePath = '/', lookups = {} } = Astro.props;
 const base = import.meta.env.BASE_URL;
 
 function getTitle(r: NormalizedRecord): string {
@@ -13,46 +20,190 @@ function getTitle(r: NormalizedRecord): string {
 }
 
 function getType(r: NormalizedRecord): string {
-  return String(r.properties['Type'] ?? r.properties['type'] ?? r.properties['Tags']?.[0] ?? r.properties['tags']?.[0] ?? '');
-}
-
-function getLocation(r: NormalizedRecord): string {
   return String(
-    r.properties['Scope'] ?? r.properties['scope'] ??
-    r.properties['Comarca'] ?? r.properties['comarca'] ??
-    r.properties['Place']?.address ??
+    r.properties['Category'] ??
+    r.properties['category'] ??
+    r.properties['Type'] ??
+    r.properties['type'] ??
+    r.properties['Tags']?.[0] ??
+    r.properties['tags']?.[0] ??
     ''
   );
 }
+
+function getPlace(r: NormalizedRecord): string {
+  const place = r.properties['Place'] ?? r.properties['place'];
+  if (place && typeof place === 'object') {
+    if ('address' in place && place.address) return String(place.address);
+    if ('latitude' in place && 'longitude' in place) return `${place.latitude}, ${place.longitude}`;
+  }
+  return String(
+    r.properties['Scope'] ?? r.properties['scope'] ??
+    r.properties['Comarca'] ?? r.properties['comarca'] ??
+    r.properties['Location'] ?? r.properties['location'] ??
+    place ?? ''
+  );
+}
+
+function getDescription(r: NormalizedRecord): string {
+  return String(r.properties['Description'] ?? r.properties['description'] ?? '');
+}
+
+function getUrl(r: NormalizedRecord): string | null {
+  return (
+    r.properties['URL'] ??
+    r.properties['Url'] ??
+    r.properties['url'] ??
+    r.properties['Website'] ??
+    r.properties['website'] ??
+    null
+  );
+}
+
+const rows = records.map((r) => {
+  const slug = r.id.replace(/-/g, '');
+  const href = `${base}${basePath.replace(/\/$/, '')}/${slug}`;
+  return {
+    id: r.id,
+    slug,
+    href,
+    name: getTitle(r),
+    type: getType(r),
+    place: getPlace(r),
+    description: getDescription(r),
+    url: getUrl(r),
+    record: r,
+  };
+});
+
+const hasLookups = Object.keys(lookups).length > 0;
 ---
 
-<div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);">
-  <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
-    <thead>
-      <tr style="border-bottom:1px solid var(--border);background:var(--surface);">
-        <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;">Name</th>
-        <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;">Type</th>
-        <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;">Location</th>
-        <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;">Link</th>
-      </tr>
-    </thead>
-    <tbody>
-      {records.map((r) => {
-        const slug = r.id.replace(/-/g, '');
-        const href = `${base}${basePath.replace(/\/$/, '')}/${slug}`;
-        return (
-          <tr style="border-bottom:1px solid var(--border);" onmouseenter="this.style.background='var(--surface)'" onmouseleave="this.style.background=''">
-            <td style="padding:0.6rem 1rem;color:var(--fg);font-weight:500;">
-              <a href={href} style="color:var(--fg);text-decoration:none;">{getTitle(r)}</a>
-            </td>
-            <td style="padding:0.6rem 1rem;color:var(--muted);font-size:0.85rem;">{getType(r)}</td>
-            <td style="padding:0.6rem 1rem;color:var(--muted);font-size:0.85rem;">{getLocation(r)}</td>
+<div id="org-table-root" style="position:relative;">
+  <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);">
+    <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border);background:var(--surface);">
+          <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;white-space:nowrap;">Name</th>
+          <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;white-space:nowrap;">Website</th>
+          <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;white-space:nowrap;">Description</th>
+          <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;white-space:nowrap;">Place</th>
+          <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;white-space:nowrap;">Category</th>
+          <th style="text-align:left;padding:0.75rem 1rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:500;white-space:nowrap;">All info</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr
+            class="org-row"
+            data-id={r.id}
+            style="border-bottom:1px solid var(--border);cursor:pointer;"
+            onmouseenter="this.style.background='var(--surface)'"
+            onmouseleave="this.style.background=''"
+          >
+            <td style="padding:0.6rem 1rem;color:var(--fg);font-weight:500;">{r.name}</td>
             <td style="padding:0.6rem 1rem;">
-              <a href={href} style="color:var(--primary);font-family:var(--mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.03em;">View →</a>
+              {r.url ? (
+                <a
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={r.url}
+                  style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--radius);background:var(--surface);color:var(--primary);font-size:0.85rem;text-decoration:none;"
+                  onclick="event.stopPropagation();"
+                >
+                  🌐
+                </a>
+              ) : (
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--radius);color:var(--border);font-size:0.85rem;">—</span>
+              )}
+            </td>
+            <td style="padding:0.6rem 1rem;color:var(--muted);font-size:0.85rem;max-width:320px;">
+              <span style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;">
+                {r.description}
+              </span>
+            </td>
+            <td style="padding:0.6rem 1rem;color:var(--muted);font-size:0.85rem;">{r.place}</td>
+            <td style="padding:0.6rem 1rem;color:var(--muted);font-size:0.85rem;">{r.type}</td>
+            <td style="padding:0.6rem 1rem;">
+              <button
+                class="org-view-btn"
+                data-id={r.id}
+                style="background:none;border:none;padding:0;color:var(--primary);font-family:var(--mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.03em;cursor:pointer;"
+              >
+                View
+              </button>
             </td>
           </tr>
-        );
-      })}
-    </tbody>
-  </table>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  {/* Hidden detail templates */}
+  {hasLookups && (
+    <div id="org-detail-templates" style="display:none;">
+      {rows.map((r) => (
+        <div id={`org-detail-${r.id}`} class="org-detail-template">
+          <OrgDetail record={r.record} lookups={lookups} mode="panel" />
+        </div>
+      ))}
+    </div>
+  )}
+
+  <!-- Side panel -->
+  <div
+    id="org-side-panel"
+    style="display:none;position:fixed;top:0;right:0;bottom:0;width:420px;max-width:40%;background:rgba(255,255,255,0.98);backdrop-filter:blur(12px);border-left:1px solid var(--border);overflow:hidden;box-shadow:-8px 0 32px rgba(42,24,16,0.12);font-family:var(--sans);z-index:100;flex-direction:column;"
+  >
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.875rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <span style="font-size:0.7rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);">Organization</span>
+      <button id="org-panel-close" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;line-height:1;padding:0;" aria-label="Close panel">✕</button>
+    </div>
+    <div id="org-panel-content" style="padding:1.25rem;overflow-y:auto;flex:1;"></div>
+  </div>
 </div>
+
+<script define:vars={{ hasLookups }}>
+  (function () {
+    if (!hasLookups) return;
+
+    const panel = document.getElementById('org-side-panel');
+    const panelContent = document.getElementById('org-panel-content');
+    const panelClose = document.getElementById('org-panel-close');
+
+    function openPanel(id) {
+      if (!panel || !panelContent) return;
+      const template = document.getElementById(`org-detail-${id}`);
+      if (!template) return;
+      panelContent.innerHTML = template.innerHTML;
+      panel.style.display = 'flex';
+      panelContent.scrollTop = 0;
+    }
+
+    function closePanel() {
+      if (panel) panel.style.display = 'none';
+    }
+
+    panelClose?.addEventListener('click', closePanel);
+
+    document.querySelectorAll('.org-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        const id = row.getAttribute('data-id');
+        if (id) openPanel(id);
+      });
+    });
+
+    document.querySelectorAll('.org-view-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        if (id) openPanel(id);
+      });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePanel();
+    });
+  })();
+</script>

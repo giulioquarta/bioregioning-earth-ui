@@ -19,14 +19,10 @@ function getCoords(r: any): { lat: number; lng: number; address?: string } | nul
   for (const key of Object.keys(props)) {
     const val = props[key];
     if (val && typeof val === 'object' && !Array.isArray(val)) {
-      const hasLat = val.latitude != null && val.latitude !== '';
-      const hasLng = val.longitude != null && val.longitude !== '';
-      if (hasLat && hasLng) {
-        const lat = Number(val.latitude);
-        const lng = Number(val.longitude);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          return { lat, lng, address: val.address };
-        }
+      const lat = val.latitude != null ? Number(val.latitude) : val.lat != null ? Number(val.lat) : null;
+      const lng = val.longitude != null ? Number(val.longitude) : val.lon != null ? Number(val.lon) : null;
+      if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+        return { lat, lng, address: val.address };
       }
     }
   }

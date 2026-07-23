@@ -1,0 +1,198 @@
+---
+import type { NormalizedRecord } from '../lib/notion';
+import { getTitle, getDescription, getUrl, getPlace, getCategory, renderMarkdown } from '../lib/notion';
+
+function getSourceIcon(src) {
+  const type = String(src.properties['Source type'] ?? src.properties['source type'] ?? '').toLowerCase();
+  if (type.includes('book')) return '📚';
+  if (type.includes('article')) return '📄';
+  if (type.includes('report')) return '📊';
+  if (type.includes('video')) return '🎬';
+  return src.icon ?? '📄';
+}
+
+export interface Props {
+  record: NormalizedRecord;
+  base?: string;
+  lookups: {
+    tags?: Map<string, NormalizedRecord>;
+    activities?: Map<string, NormalizedRecord>;
+    sources?: Map<string, NormalizedRecord>;
+    affiliations?: Map<string, NormalizedRecord>;
+  };
+  mode?: 'panel' | 'page';
+}
+const { record, base = '', lookups, mode = 'page' } = Astro.props;
+
+const isPanel = mode === 'panel';
+const title = getTitle(record);
+
+function formatPropertyValue(value: any): string {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') {
+    if ('address' in value && value.address) return String(value.address);
+    if ('name' in value && value.name) return String(value.name);
+    if ('latitude' in value && 'longitude' in value) return `${value.latitude}, ${value.longitude}`;
+    try { return JSON.stringify(value); } catch { return '[Object]'; }
+  }
+  return String(value);
+}
+
+function shouldShowBasicProperty(key: string, value: any): boolean {
+  const keyLower = key.toLowerCase();
+  const hiddenKeys = [
+    'source_file', 'id', 'location_lat', 'location_lng', 'name',
+    'tags', 'activities', 'sources', 'network affiliation', 'network_affiliation',
+    'background_section', 'vision_legacy_section', 'bioregional_context',
+    'description', 'website', 'place', 'category', 'type', 'temp', 'patterns', 'case study'
+  ];
+  if (hiddenKeys.includes(keyLower)) return false;
+  if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return false;
+  if (typeof value === 'object' && 'latitude' in value && 'longitude' in value && !('address' in value && value.address)) return false;
+  return true;
+}
+
+const basicProperties = Object.entries(record.properties).filter(([key, value]) => shouldShowBasicProperty(key, value));
+
+const tagIds: string[] = Array.isArray(record.properties['Tags']) ? record.properties['Tags'] : [];
+const activityIds: string[] = Array.isArray(record.properties['Activities']) ? record.properties['Activities'] : [];
+const sourceIds: string[] = Array.isArray(record.properties['Sources']) ? record.properties['Sources'] : [];
+const affiliationIds: string[] = Array.isArray(record.properties['Network Affiliation']) ? record.properties['Network Affiliation'] : [];
+
+const tags = tagIds.map((id) => lookups.tags?.get(id)).filter(Boolean) as NormalizedRecord[];
+const activities = activityIds.map((id) => lookups.activities?.get(id)).filter(Boolean) as NormalizedRecord[];
+const sources = sourceIds.map((id) => lookups.sources?.get(id)).filter(Boolean) as NormalizedRecord[];
+const affiliations = affiliationIds.map((id) => lookups.affiliations?.get(id)).filter(Boolean) as NormalizedRecord[];
+
+const background = String(record.properties['background_section'] ?? record.properties['Background_section'] ?? '');
+const vision = String(record.properties['vision_legacy_section'] ?? record.properties['Vision_legacy_section'] ?? '');
+const context = String(record.properties['bioregional_context'] ?? record.properties['Bioregional_context'] ?? '');
+const website = getUrl(record);
+const place = getPlace(record);
+const category = getCategory(record);
+const description = getDescription(record);
+
+function slugFor(id: string): string {
+  return id.replace(/-/g, '');
+}
+
+const headingSize = isPanel ? '1.15rem' : '1.25rem';
+const subHeadingSize = isPanel ? '1rem' : '1.1rem';
+---
+
+<div>
+  <h2 style={`font-size:clamp(1.2rem, 2.5vw, ${headingSize});font-weight:500;margin:0 0 0.6rem 0;color:var(--fg);line-height:1.2;font-family:var(--serif);letter-spacing:-0.01em;`}>
+    {record.icon && <span style="margin-right:0.5rem;">{record.icon}</span>}
+    {title}
+  </h2>
+
+  {category && (
+    <div style="display:inline-block;padding:0.35rem 0.65rem;border-radius:var(--radius);background:var(--surface);color:var(--fg);font-size:0.75rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;margin-bottom:1rem;">
+      {category}
+    </div>
+  )}
+
+  {website && (
+    <div style="margin-bottom:1rem;">
+      <a href={website} target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.5rem 0.9rem;border-radius:var(--radius);background:var(--primary);color:var(--primary-fg);font-size:0.75rem;text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;">
+        🌐 Visit website
+      </a>
+    </div>
+  )}
+
+  {description && (
+    <p style="font-size:0.95rem;color:var(--fg);line-height:1.6;margin:0 0 1rem 0;">{description}</p>
+  )}
+
+  {context && (
+    <div style="margin-bottom:1rem;">
+      <p style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;font-family:var(--mono);margin:0 0 0.25rem 0;">Bioregional Context</p>
+      <p style="font-size:0.9rem;color:var(--fg);line-height:1.55;margin:0;">{context}</p>
+    </div>
+  )}
+
+  <dl style={`display:grid;grid-template-columns:1fr;gap:${isPanel ? '0.75rem' : '1rem'};margin:0 0 1.5rem 0;`}>
+    {place && (
+      <div style={`display:grid;grid-template-columns:${isPanel ? '100px' : '140px'} 1fr;gap:0.5rem;align-items:start;`}>
+        <dt style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding-top:0.15rem;font-family:var(--mono);">Place</dt>
+        <dd style="margin:0;font-size:0.9rem;color:var(--fg);word-break:break-word;">{place}</dd>
+      </div>
+    )}
+    {basicProperties.map(([key, value]) => (
+      <div style={`display:grid;grid-template-columns:${isPanel ? '100px' : '140px'} 1fr;gap:0.5rem;align-items:start;`}>
+        <dt style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding-top:0.15rem;font-family:var(--mono);">{key}</dt>
+        <dd style="margin:0;font-size:0.9rem;color:var(--fg);word-break:break-word;">{formatPropertyValue(value)}</dd>
+      </div>
+    ))}
+  </dl>
+
+  {tags.length > 0 && (
+    <div style="margin-bottom:1.5rem;">
+      <h3 style={`font-size:0.75rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin:0 0 0.75rem 0;`}>Tags</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+        {tags.map((tag) => (
+          <a href={`${base}/ontology/${slugFor(tag.id)}`} style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.45rem 0.75rem;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);color:var(--fg);text-decoration:none;font-size:0.85rem;">
+            <span>{tag.icon || '•'}</span>
+            <span style="word-break:break-word;overflow-wrap:anywhere;">{getTitle(tag)}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {background && (
+    <div style="margin-bottom:1.5rem;" set:html={renderMarkdown(background)} />
+  )}
+
+  {activities.length > 0 && (
+    <div style="margin-bottom:1.5rem;">
+      <h3 style={`font-size:${subHeadingSize};font-weight:500;margin:0 0 0.75rem 0;color:var(--fg);font-family:var(--serif);letter-spacing:-0.01em;`}>Activities</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));gap:0.75rem;">
+        {activities.map((act) => (
+          <a href={act.url} target="_blank" rel="noopener noreferrer" style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);text-decoration:none;color:var(--fg);">
+            <span style="font-size:1.1rem;line-height:1;flex-shrink:0;">{act.icon || '🔸'}</span>
+            <div style="min-width:0;">
+              <h4 style="margin:0;font-size:0.85rem;font-weight:600;font-family:var(--sans);line-height:1.3;word-break:break-word;overflow-wrap:anywhere;">{getTitle(act)}</h4>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {vision && (
+    <div style="margin-bottom:1.5rem;" set:html={renderMarkdown(vision)} />
+  )}
+
+  {sources.length > 0 && (
+    <div style="margin-bottom:1.5rem;">
+      <h3 style={`font-size:${subHeadingSize};font-weight:500;margin:0 0 0.75rem 0;color:var(--fg);font-family:var(--serif);letter-spacing:-0.01em;`}>Sources</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));gap:0.75rem;">
+        {sources.map((src) => (
+          <a href={`${base}/sources/${slugFor(src.id)}`} style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);text-decoration:none;color:var(--fg);">
+            <span style="font-size:1.1rem;line-height:1;flex-shrink:0;">{getSourceIcon(src)}</span>
+            <div style="min-width:0;">
+              <h4 style="margin:0;font-size:0.85rem;font-weight:600;font-family:var(--sans);line-height:1.3;word-break:break-word;overflow-wrap:anywhere;">{getTitle(src)}</h4>
+              {src.properties['Author'] && <p style="margin:0.25rem 0 0 0;color:var(--muted);font-size:0.75rem;line-height:1.4;">{src.properties['Author']}</p>}
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {affiliations.length > 0 && (
+    <div style="margin-bottom:1.5rem;">
+      <h3 style="font-size:0.75rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin:0 0 0.75rem 0;">Network Affiliation</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+        {affiliations.map((org) => (
+          <a href={`${base}/organizations/${slugFor(org.id)}`} style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.45rem 0.75rem;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);color:var(--fg);text-decoration:none;font-size:0.85rem;">
+            <span>{org.icon || '🌱'}</span>
+            <span style="word-break:break-word;overflow-wrap:anywhere;">{getTitle(org)}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  )}
+</div>

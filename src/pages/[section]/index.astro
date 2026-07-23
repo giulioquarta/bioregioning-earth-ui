@@ -5,7 +5,7 @@ import OntologyGallery from '../../components/OntologyGallery.astro';
 import SourcesTable from '../../components/SourcesTable.astro';
 import OrganizationsTable from '../../components/OrganizationsTable.astro';
 import EarthMap from '../../components/EarthMap.astro';
-import { loadSectionConfig, fetchSectionRecords } from '../../lib/notion';
+import { loadSectionConfig, loadRelatedDatabases, fetchSectionRecords, fetchDatabaseRecords, fetchActivitiesRecords, buildRecordMap } from '../../lib/notion';
 
 export async function getStaticPaths() {
   const sections = loadSectionConfig();
@@ -23,93 +23,44 @@ function hasCoords(props: Record<string, any>): boolean {
   for (const key of Object.keys(props)) {
     const val = props[key];
     if (val && typeof val === 'object' && !Array.isArray(val)) {
-      const hasLat = val.latitude != null && val.latitude !== '';
-      const hasLng = val.longitude != null && val.longitude !== '';
-      if (hasLat && hasLng) {
-        const lat = Number(val.latitude);
-        const lng = Number(val.longitude);
-        if (!isNaN(lat) && !isNaN(lng)) return true;
-      }
+      const lat = val.latitude != null ? Number(val.latitude) : val.lat != null ? Number(val.lat) : null;
+      const lng = val.longitude != null ? Number(val.longitude) : val.lon != null ? Number(val.lon) : null;
+      if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) return true;
     }
   }
   const lat = Number(
-    props['Lat'] ?? props['lat'] ?? props['Latitude'] ?? props['latitude'] ??
-    props['location_lat'] ?? props['location_Lat'] ?? props['Location_Lat']
+    props['Lat'] ?? props['lat'] ?? props['Latitude'] ?? props['latitude'] ?? props['location_lat'] ?? props['location_Lat'] ?? props['Location_Lat']
   );
   const lng = Number(
-    props['Lng'] ?? props['lng'] ?? props['Longitude'] ?? props['longitude'] ??
-    props['location_lng'] ?? props['location_Lng'] ?? props['Location_Lng']
+    props['Lng'] ?? props['lng'] ?? props['Longitude'] ?? props['longitude'] ?? props['location_lng'] ?? props['location_Lng'] ?? props['Location_Lng']
   );
   return !isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0);
 }
 
-function getTitle(r: any): string {
-  return String(r.properties['Name'] ?? r.properties['Title'] ?? r.properties['name'] ?? r.properties['title'] ?? 'Untitled');
-}
-
-function getType(r: any): string {
-  return String(r.properties['Type'] ?? r.properties['type'] ?? r.properties['Tags']?.[0] ?? r.properties['tags']?.[0] ?? '');
-}
-
-function getLocation(r: any): string {
-  return String(
-    r.properties['Scope'] ?? r.properties['scope'] ??
-    r.properties['Comarca'] ?? r.properties['comarca'] ??
-    r.properties['Place']?.address ??
-    ''
-  );
-}
-
-function getDescription(r: any): string {
-  return String(r.properties['Description'] ?? r.properties['description'] ?? '');
-}
-
-function getUrl(r: any): string | null {
-  return r.properties['URL'] ?? r.properties['Url'] ?? r.properties['url'] ?? r.properties['Website'] ?? r.properties['website'] ?? null;
-}
-
-const hasMapData = records.some((r) => hasCoords(r.properties));
 const isOrgs = section.id === 'bioregional-organizations';
 const isOntology = section.id === 'ontology';
 const isSources = section.id === 'sources';
 
-// Build markers with full panel data
-const markers = records
-  .map((r) => {
-    const props = r.properties ?? {};
-    let lat: number | null = null;
-    let lng: number | null = null;
+let lookups = { tags: new Map(), activities: new Map(), sources: new Map(), affiliations: new Map() };
+if (isOrgs) {
+  const sections = loadSectionConfig();
+  const related = loadRelatedDatabases();
+  const sourcesSection = sections.find((s) => s.id === 'sources');
+  const ontologySection = sections.find((s) => s.id === 'ontology');
+  const [allSources, allOntology, allActivities] = await Promise.all([
+    sourcesSection?.database_id ? fetchDatabaseRecords(sourcesSection.database_id) : Promise.resolve([]),
+    ontologySection?.database_id ? fetchDatabaseRecords(ontologySection.database_id) : Promise.resolve([]),
+    related.activities ? fetchActivitiesRecords() : Promise.resolve([]),
+  ]);
+  lookups = {
+    tags: buildRecordMap(allOntology),
+    activities: buildRecordMap(allActivities),
+    sources: buildRecordMap(allSources),
+    affiliations: buildRecordMap(records),
+  };
+}
 
-    for (const key of Object.keys(props)) {
-      const val = props[key];
-      if (val && typeof val === 'object' && !Array.isArray(val) && 'latitude' in val && 'longitude' in val) {
-        const lt = Number(val.latitude);
-        const ln = Number(val.longitude);
-        if (!isNaN(lt) && !isNaN(ln)) { lat = lt; lng = ln; }
-      }
-    }
-    if (lat === null) {
-      const nLat = Number(props['Lat'] ?? props['lat'] ?? props['Latitude'] ?? props['latitude'] ?? props['location_lat'] ?? props['location_Lat'] ?? props['Location_Lat']);
-      const nLng = Number(props['Lng'] ?? props['lng'] ?? props['Longitude'] ?? props['longitude'] ?? props['location_lng'] ?? props['location_Lng'] ?? props['Location_Lng']);
-      if (!isNaN(nLat) && !isNaN(nLng) && (nLat !== 0 || nLng !== 0)) { lat = nLat; lng = nLng; }
-    }
-    if (lat === null) return null;
-
-    const slug = r.id.replace(/-/g, '');
-    return {
-      id: r.id,
-      slug,
-      lat,
-      lng,
-      name: getTitle(r),
-      type: getType(r),
-      location: getLocation(r),
-      description: getDescription(r),
-      url: getUrl(r),
-      href: `${base}${section.route}/${slug}`,
-    };
-  })
-  .filter(Boolean);
+const hasMapData = records.some((r) => hasCoords(r.properties));
 ---
 
 <Layout title={section.name} description={section.description}>
@@ -131,7 +82,7 @@ const markers = records
     <!-- Table view for Organizations -->
     {isOrgs && (
       <section style="margin-bottom:2.5rem;">
-        <OrganizationsTable records={records} basePath={section.route} />
+        <OrganizationsTable records={records} basePath={section.route} lookups={lookups} />
       </section>
     )}
 

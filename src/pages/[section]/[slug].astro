@@ -1,11 +1,38 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { loadSectionConfig, fetchSectionRecords } from '../../lib/notion';
+import OrgDetail from '../../components/OrgDetail.astro';
+import { loadSectionConfig, loadRelatedDatabases, fetchSectionRecords, fetchDatabaseRecords, fetchActivitiesRecords, buildRecordMap } from '../../lib/notion';
 import type { NormalizedRecord } from '../../lib/notion';
 
 export async function getStaticPaths() {
   const sections = loadSectionConfig();
-  const allPaths: { params: { section: string; slug: string }; props: { record: NormalizedRecord; sectionRoute: string; sectionName: string } }[] = [];
+  const related = loadRelatedDatabases();
+
+  const orgSection = sections.find((s) => s.id === 'bioregional-organizations');
+  const sourcesSection = sections.find((s) => s.id === 'sources');
+  const ontologySection = sections.find((s) => s.id === 'ontology');
+
+  const [allOrgs, allSources, allOntology, allActivities] = await Promise.all([
+    orgSection?.database_id ? fetchDatabaseRecords(orgSection.database_id) : Promise.resolve([]),
+    sourcesSection?.database_id ? fetchDatabaseRecords(sourcesSection.database_id) : Promise.resolve([]),
+    ontologySection?.database_id ? fetchDatabaseRecords(ontologySection.database_id) : Promise.resolve([]),
+    related.activities ? fetchActivitiesRecords() : Promise.resolve([]),
+  ]);
+
+  const allPaths: {
+    params: { section: string; slug: string };
+    props: {
+      record: NormalizedRecord;
+      sectionRoute: string;
+      sectionName: string;
+      lookups: {
+        tags: Map<string, NormalizedRecord>;
+        activities: Map<string, NormalizedRecord>;
+        sources: Map<string, NormalizedRecord>;
+        affiliations: Map<string, NormalizedRecord>;
+      };
+    };
+  }[] = [];
 
   for (const section of sections) {
     if (!section.database_id) continue;
@@ -16,7 +43,17 @@ export async function getStaticPaths() {
           section: section.route.replace(/^\//, ''),
           slug: r.id.replace(/-/g, ''),
         },
-        props: { record: r, sectionRoute: section.route, sectionName: section.name },
+        props: {
+          record: r,
+          sectionRoute: section.route,
+          sectionName: section.name,
+          lookups: {
+            tags: buildRecordMap(allOntology),
+            activities: buildRecordMap(allActivities),
+            sources: buildRecordMap(allSources),
+            affiliations: buildRecordMap(allOrgs),
+          },
+        },
       });
     }
   }
@@ -28,47 +65,20 @@ interface Props {
   record: NormalizedRecord;
   sectionRoute: string;
   sectionName: string;
+  lookups: {
+    tags: Map<string, NormalizedRecord>;
+    activities: Map<string, NormalizedRecord>;
+    sources: Map<string, NormalizedRecord>;
+    affiliations: Map<string, NormalizedRecord>;
+  };
 }
 
-const { record, sectionRoute, sectionName } = Astro.props;
+const { record, sectionRoute, sectionName, lookups } = Astro.props;
 const base = import.meta.env.BASE_URL;
+const isOrgs = sectionRoute === '/organizations';
 
-function getTitle(r: NormalizedRecord): string {
-  return String(r.properties['Name'] ?? r.properties['Title'] ?? r.properties['name'] ?? r.properties['title'] ?? 'Untitled');
-}
-
-function getDescription(r: NormalizedRecord): string {
-  return String(r.properties['Description'] ?? r.properties['description'] ?? r.properties['Notes'] ?? r.properties['notes'] ?? '');
-}
-
-function formatPropertyValue(value: any): string {
-  if (value === null || value === undefined) return '';
-  if (Array.isArray(value)) return value.join(', ');
-  if (typeof value === 'object') {
-    // Notion location type — return address if available
-    if ('address' in value && value.address) return String(value.address);
-    if ('latitude' in value && 'longitude' in value) {
-      return `${value.latitude}, ${value.longitude}`;
-    }
-    try { return JSON.stringify(value); } catch { return '[Object]'; }
-  }
-  return String(value);
-}
-
-function shouldShowProperty(key: string, value: any): boolean {
-  const keyLower = key.toLowerCase();
-  const hiddenKeys = ['source_file', 'type', 'location_lat', 'id', 'location_lng', 'name'];
-  if (hiddenKeys.includes(keyLower)) return false;
-  if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return false;
-  // Hide location-object Place properties; keep only textual Place
-  if (keyLower === 'place' && typeof value === 'object' && 'latitude' in value && 'longitude' in value) return false;
-  // Skip raw location objects that have no address (they show as [object Object])
-  if (typeof value === 'object' && 'latitude' in value && 'longitude' in value && !('address' in value && value.address)) return false;
-  return true;
-}
-
-const title = getTitle(record);
-const description = getDescription(record).slice(0, 200);
+const title = record.properties['Name']?.toString() ?? record.properties['Title']?.toString() ?? 'Untitled';
+const description = (record.properties['Description']?.toString() ?? record.properties['description']?.toString() ?? '').slice(0, 200);
 ---
 
 <Layout title={title} description={description}>
@@ -77,25 +87,27 @@ const description = getDescription(record).slice(0, 200);
       <a href={`${base}${sectionRoute}`} style="font-size:0.8rem;color:var(--muted);text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;">← {sectionName}</a>
     </div>
 
-    <h1 style="font-size:clamp(1.8rem, 3.5vw, 2.4rem);font-weight:500;margin:0 0 1.5rem 0;color:var(--fg);line-height:1.2;font-family:var(--serif);letter-spacing:-0.01em;">
-      {record.icon && <span style="margin-right:0.5rem;">{record.icon}</span>}
-      {title}
-    </h1>
-
     <div style="border-radius:var(--radius);border:1px solid var(--border);background:var(--card);padding:1.5rem;margin-bottom:1.5rem;">
-      <dl style="display:grid;grid-template-columns:1fr;gap:1rem;margin:0;">
-        {Object.entries(record.properties).map(([key, value]) => {
-          if (!shouldShowProperty(key, value)) return null;
-          return (
-            <div style="display:grid;grid-template-columns:140px 1fr;gap:0.75rem;align-items:start;">
-              <dt style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding-top:0.15rem;font-family:var(--mono);">{key}</dt>
-              <dd style="margin:0;font-size:0.9rem;color:var(--fg);word-break:break-word;">
-                {formatPropertyValue(value)}
-              </dd>
-            </div>
-          );
-        })}
-      </dl>
+      {isOrgs ? (
+        <OrgDetail record={record} lookups={lookups} mode="page" />
+      ) : (
+        <dl style="display:grid;grid-template-columns:1fr;gap:1rem;margin:0;">
+          {Object.entries(record.properties).map(([key, value]) => {
+            if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return null;
+            const keyLower = key.toLowerCase();
+            if (['source_file', 'id', 'location_lat', 'location_lng', 'name'].includes(keyLower)) return null;
+            if (typeof value === 'object' && 'latitude' in value && 'longitude' in value && !('address' in value && value.address)) return null;
+            const display = Array.isArray(value) ? value.join(', ') :
+              typeof value === 'object' ? (value.address ?? value.name ?? JSON.stringify(value)) : String(value);
+            return (
+              <div style="display:grid;grid-template-columns:140px 1fr;gap:0.75rem;align-items:start;">
+                <dt style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding-top:0.15rem;font-family:var(--mono);">{key}</dt>
+                <dd style="margin:0;font-size:0.9rem;color:var(--fg);word-break:break-word;">{display}</dd>
+              </div>
+            );
+          })}
+        </dl>
+      )}
     </div>
 
     <div style="display:flex;gap:1rem;flex-wrap:wrap;">

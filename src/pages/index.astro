@@ -2,25 +2,42 @@
 import Layout from '../layouts/Layout.astro';
 import HomeEarthMap from '../components/HomeEarthMap.astro';
 import OrganizationsTable from '../components/OrganizationsTable.astro';
-import { loadSectionConfig, fetchSectionRecords } from '../lib/notion';
+import { loadSectionConfig, loadRelatedDatabases, fetchSectionRecords, fetchDatabaseRecords, fetchActivitiesRecords, buildRecordMap } from '../lib/notion';
 
 const sections = loadSectionConfig();
+const related = loadRelatedDatabases();
 
-const sectionsWithData = await Promise.all(
-  sections.map(async (s) => {
-    const records = await fetchSectionRecords(s);
-    return { section: s, records };
-  })
-);
+const orgSection = sections.find((s) => s.id === 'bioregional-organizations');
+const sourcesSection = sections.find((s) => s.id === 'sources');
+const ontologySection = sections.find((s) => s.id === 'ontology');
+
+const [sectionsWithData, allSources, allOntology, allActivities] = await Promise.all([
+  Promise.all(
+    sections.map(async (s) => {
+      const records = await fetchSectionRecords(s);
+      return { section: s, records };
+    })
+  ),
+  sourcesSection?.database_id ? fetchDatabaseRecords(sourcesSection.database_id) : Promise.resolve([]),
+  ontologySection?.database_id ? fetchDatabaseRecords(ontologySection.database_id) : Promise.resolve([]),
+  related.activities ? fetchActivitiesRecords() : Promise.resolve([]),
+]);
 
 const orgsData = sectionsWithData.find(({ section }) => section.id === 'bioregional-organizations');
 const orgRecords = orgsData?.records ?? [];
 const orgCount = orgRecords.length;
 const orgDescription = 'Bioregional actors and initiatives currently mapped';
 
-const mapMarkers = sectionsWithData.flatMap(({ section, records }) =>
-  records.map(r => ({ ...r, sectionRoute: section.route }))
-);
+const mapMarkers = sectionsWithData
+  .filter(({ section }) => section.id === 'bioregional-organizations')
+  .flatMap(({ section, records }) => records.map((r) => ({ ...r, sectionRoute: section.route })));
+
+const lookups = {
+  tags: buildRecordMap(allOntology),
+  activities: buildRecordMap(allActivities),
+  sources: buildRecordMap(allSources),
+  affiliations: buildRecordMap(orgRecords),
+};
 ---
 
 <Layout title="Dashboard" description="Explore bioregional actors, projects, and opportunities" hideFooter={true}>
@@ -46,7 +63,7 @@ const mapMarkers = sectionsWithData.flatMap(({ section, records }) =>
 
     <!-- Map view -->
     <div id="map-view" style="width:100%;height:100%;">
-      <HomeEarthMap records={mapMarkers} orgCount={orgCount} orgDescription={orgDescription} />
+      <HomeEarthMap records={mapMarkers} orgCount={orgCount} orgDescription={orgDescription} lookups={lookups} />
     </div>
 
     <!-- Table view -->
@@ -58,7 +75,7 @@ const mapMarkers = sectionsWithData.flatMap(({ section, records }) =>
             <strong>{orgCount}</strong> {orgDescription}
           </p>
         </header>
-        <OrganizationsTable records={orgRecords} basePath="/organizations" />
+        <OrganizationsTable records={orgRecords} basePath="/organizations" lookups={lookups} />
       </div>
     </div>
   </main>
@@ -77,6 +94,7 @@ const mapMarkers = sectionsWithData.flatMap(({ section, records }) =>
       } else {
         mapView.style.display = 'block';
         tableView.style.display = 'none';
+        window.dispatchEvent(new CustomEvent('view-changed', { detail: { view } }));
       }
 
       buttons.forEach((btn) => {

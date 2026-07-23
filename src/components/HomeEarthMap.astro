@@ -1,4 +1,7 @@
 ---
+import type { NormalizedRecord } from '../lib/notion';
+import OrgDetail from './OrgDetail.astro';
+
 export interface Props {
   records?: Array<{
     id: string;
@@ -9,20 +12,24 @@ export interface Props {
   basePath?: string;
   orgCount?: number;
   orgDescription?: string;
+  lookups?: {
+    tags?: Map<string, NormalizedRecord>;
+    activities?: Map<string, NormalizedRecord>;
+    sources?: Map<string, NormalizedRecord>;
+    affiliations?: Map<string, NormalizedRecord>;
+  };
 }
-const { records = [], basePath = '/', orgCount = 0, orgDescription = '' } = Astro.props;
+const { records = [], basePath = '/', orgCount = 0, orgDescription = '', lookups = {} } = Astro.props;
 const base = import.meta.env.BASE_URL;
 
 function getCoords(props: Record<string, any>): { lat: number; lng: number } | null {
   for (const key of Object.keys(props)) {
     const val = props[key];
     if (val && typeof val === 'object' && !Array.isArray(val)) {
-      const hasLat = val.latitude != null && val.latitude !== '';
-      const hasLng = val.longitude != null && val.longitude !== '';
-      if (hasLat && hasLng) {
-        const lat = Number(val.latitude);
-        const lng = Number(val.longitude);
-        if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+      const lat = val.latitude != null ? Number(val.latitude) : val.lat != null ? Number(val.lat) : null;
+      const lng = val.longitude != null ? Number(val.longitude) : val.lon != null ? Number(val.lon) : null;
+      if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+        return { lat, lng };
       }
     }
   }
@@ -46,19 +53,19 @@ const markers = records
     const slug = r.id.replace(/-/g, '');
     const pathPrefix = r.sectionRoute ? r.sectionRoute.replace(/\/$/, '') : basePath.replace(/\/$/, '');
     const href = `${base}${pathPrefix}/${slug}`;
+    const caseStudy = r.properties['Case Study'] ?? null;
     return {
       id: r.id,
       lat: coords.lat,
       lng: coords.lng,
       name,
       href,
-      url: r.url ?? null,
-      properties: r.properties,
+      caseStudy,
     };
   })
-  .filter(Boolean) as Array<{
-    id: string; lat: number; lng: number; name: string; href: string; url: string | null; properties: Record<string, any>;
-  }>;
+  .filter(Boolean) as Array<{ id: string; lat: number; lng: number; name: string; href: string; caseStudy: string | null }>;
+
+const hasLookups = Object.keys(lookups).length > 0;
 ---
 
 <div style="position:relative;width:100%;height:100%;overflow:hidden;">
@@ -91,11 +98,6 @@ const markers = records
           <span style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.7rem;font-size:0.75rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;background:var(--primary);color:var(--primary-fg);font-weight:500;cursor:default;">🗺️ Map</span>
           <a href="#table" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.7rem;font-size:0.75rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;color:var(--muted);text-decoration:none;transition:background 0.12s;" onmouseenter="this.style.background='var(--surface)'" onmouseleave="this.style.background=''">🗂️ Table</a>
         </div>
-
-        <p style="margin:0;font-size:0.75rem;line-height:1.5;">
-          <a href={`${base}/how-to-explore`} style="color:var(--primary);">How to Explore</a>
-          · <a href={`${base}/about`} style="color:var(--primary);">About</a>
-        </p>
       </div>
 
       <!-- Detail view -->
@@ -105,52 +107,25 @@ const markers = records
   </div>
 </div>
 
+{hasLookups && (
+  <div style="display:none;">
+    {records.map((r) => (
+      <div id={`home-detail-${r.id}`} class="home-detail-template">
+        <OrgDetail record={r} lookups={lookups} mode="panel" />
+      </div>
+    ))}
+  </div>
+)}
+
 <script>
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
 
-  function getDescription(props) {
-    return String(props['Description'] ?? props['description'] ?? props['Notes'] ?? props['notes'] ?? '');
-  }
-
-  function formatValue(value) {
-    if (value === null || value === undefined) return '';
-    if (Array.isArray(value)) return value.join(', ');
-    if (typeof value === 'object') {
-      if ('address' in value && value.address) return String(value.address);
-      if ('latitude' in value && 'longitude' in value) return `${value.latitude}, ${value.longitude}`;
-      try { return JSON.stringify(value); } catch { return '[Object]'; }
-    }
-    return String(value);
-  }
-
-  function shouldShowProperty(key, value) {
-    const keyLower = key.toLowerCase();
-    const hiddenKeys = ['source_file', 'type', 'location_lat', 'id', 'location_lng', 'name'];
-    if (hiddenKeys.includes(keyLower)) return false;
-    if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return false;
-    if (keyLower === 'place' && typeof value === 'object' && 'latitude' in value && 'longitude' in value) return false;
-    if (typeof value === 'object' && 'latitude' in value && 'longitude' in value && !('address' in value && value.address)) return false;
-    return true;
-  }
-
-  function renderProperties(props) {
-    const entries = Object.entries(props).filter(([key, value]) => shouldShowProperty(key, value));
-    if (entries.length === 0) return '';
-    return `<dl style="display:grid;grid-template-columns:1fr;gap:0.85rem;margin:0;">
-      ${entries.map(([key, value]) => {
-        const display = formatValue(value);
-        return `<div style="display:grid;grid-template-columns:110px 1fr;gap:0.5rem;align-items:start;">
-          <dt style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding-top:0.15rem;font-family:var(--mono);">${key}</dt>
-          <dd style="margin:0;font-size:0.8rem;color:var(--fg);word-break:break-word;line-height:1.45;">${display}</dd>
-        </div>`;
-      }).join('')}
-    </dl>`;
-  }
-
   function initMap() {
     const container = document.getElementById('home-map');
     if (!container) return;
+
+    const hasLookups = document.querySelector('.home-detail-template') !== null;
 
     const markers = JSON.parse(container.dataset.markers || '[]');
     const base = container.dataset.base || '';
@@ -181,8 +156,13 @@ const markers = records
       zoom: markers.length === 1 ? 4 : 2,
     });
 
-    map.addControl(new maplibregl.NavigationControl(), 'top-left');
-    map.addControl(new maplibregl.FullscreenControl(), 'top-left');
+    map.addControl(new maplibregl.NavigationControl(), 'bottom-left');
+    map.addControl(new maplibregl.FullscreenControl(), 'bottom-left');
+    window.addEventListener('view-changed', (e) => {
+      if (e.detail?.view === 'map') {
+        setTimeout(() => map.resize(), 0);
+      }
+    });
 
     const bounds = new maplibregl.LngLatBounds();
 
@@ -206,20 +186,21 @@ const markers = records
       welcomeLabel.style.display = 'none';
       backBtn.style.display = 'inline-block';
 
-      const desc = getDescription(m.properties);
-      const descHtml = desc ? `<p style="font-size:0.95rem;color:var(--fg);line-height:1.6;margin:0 0 1rem 0;">${desc}</p>` : '';
-      const propsHtml = renderProperties(m.properties);
-
-      detailDiv.innerHTML = `
-        <h2 style="font-size:clamp(1.3rem, 2.5vw, 1.6rem);font-weight:500;margin:0 0 0.6rem 0;color:var(--fg);line-height:1.2;font-family:var(--serif);letter-spacing:-0.01em;">${m.name}</h2>
-        ${descHtml}
-        <div style="border-radius:var(--radius);border:1px solid var(--border);background:var(--card);padding:1rem;margin-bottom:1rem;">
-          ${propsHtml}
-        </div>
-        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
-          <a href="${m.href}" style="display:inline-block;padding:0.5rem 0.9rem;border-radius:var(--radius);background:var(--primary);color:var(--primary-fg);font-size:0.75rem;text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;">View full page →</a>
-        </div>
-      `;
+      if (hasLookups) {
+        const template = document.getElementById(`home-detail-${m.id}`);
+        if (template) {
+          detailDiv.innerHTML = template.innerHTML;
+        } else {
+          detailDiv.innerHTML = '<p style="color:var(--muted);">Detail not available.</p>';
+        }
+      } else {
+        detailDiv.innerHTML = `
+          <h2 style="font-size:clamp(1.3rem, 2.5vw, 1.6rem);font-weight:500;margin:0 0 0.6rem 0;color:var(--fg);line-height:1.2;font-family:var(--serif);letter-spacing:-0.01em;">${m.name}</h2>
+          <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+            <a href="${m.href}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:0.5rem 0.9rem;border-radius:var(--radius);background:var(--primary);color:var(--primary-fg);font-size:0.75rem;text-decoration:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.03em;">View full page →</a>
+          </div>
+        `;
+      }
       detailDiv.style.display = 'block';
       if (contentDiv) contentDiv.scrollTop = 0;
     }
@@ -227,52 +208,41 @@ const markers = records
     backBtn?.addEventListener('click', showWelcome);
     panel?.addEventListener('click', (e) => e.stopPropagation());
 
-    for (const m of markers) {
-      const el = document.createElement('div');
-      el.style.cssText = 'width:max-content;min-width:14px;height:14px;display:flex;align-items:flex-end;justify-content:center;position:relative;cursor:pointer;';
+    function placeMarkers() {
+      for (const m of markers) {
+        const pinColor = m.caseStudy === 'Y' ? '#F0A030' : '#B0A090';
+        const marker = new maplibregl.Marker({ color: pinColor, scale: 0.8 })
+          .setLngLat([m.lng, m.lat])
+          .addTo(map);
 
-      const dot = document.createElement('div');
-      dot.style.cssText = 'width:14px;height:14px;border-radius:50%;background:var(--primary);border:2px solid var(--fg);box-shadow:0 2px 6px rgba(0,0,0,0.2);flex-shrink:0;transition:background 0.15s,border-color 0.15s;';
-      el.appendChild(dot);
+        marker.getElement().addEventListener('click', (e) => {
+          e.stopPropagation();
+          showDetail(m);
+        });
 
-      const tip = document.createElement('div');
-      tip.textContent = m.name;
-      tip.style.cssText = 'position:absolute;bottom:20px;left:0;right:0;width:max-content;margin:0 auto;background:var(--paper-900);color:var(--paper-50);padding:0.4rem 0.8rem;border-radius:var(--radius);font-size:0.8rem;font-family:var(--sans);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.18s;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:30;';
-      el.appendChild(tip);
+        bounds.extend([m.lng, m.lat]);
+      }
 
-      el.addEventListener('mouseenter', () => {
-        tip.style.opacity = '1';
-        dot.style.borderColor = 'var(--primary)';
-        dot.style.background = 'var(--fg)';
-      });
-      el.addEventListener('mouseleave', () => {
-        tip.style.opacity = '0';
-        dot.style.borderColor = 'var(--fg)';
-        dot.style.background = 'var(--primary)';
-      });
+      if (markers.length > 1) {
+        map.fitBounds(bounds, { padding: 40, maxZoom: 8 });
+      }
 
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showDetail(m);
-      });
-
-      new maplibregl.Marker({ element: el })
-        .setLngLat([m.lng, m.lat])
-        .addTo(map);
-
-      bounds.extend([m.lng, m.lat]);
+      map.on('click', showWelcome);
     }
 
-    if (markers.length > 1) {
-      map.fitBounds(bounds, { padding: 40, maxZoom: 8 });
+    if (map.loaded()) {
+      placeMarkers();
+    } else {
+      map.on('load', placeMarkers);
     }
 
-    map.on('click', showWelcome);
+    // Ensure the map renders at the correct size after the container is laid out
+    requestAnimationFrame(() => map.resize());
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initMap);
-  } else {
+  if (document.readyState === 'complete') {
     initMap();
+  } else {
+    window.addEventListener('load', initMap);
   }
 </script>
